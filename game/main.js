@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BoardView, makeToken, makeCharacterToken, loadPieces, makeDie, DIE_UP, THEMES, MATS, TOP } from './board3d.js';
 import * as D from './data.js';
-import * as NET from './net.js';
+import * as NET from './net-mqtt.js';
 import { PLAYER_COLORS } from './data.js';
 import * as E from './engine.js';
 
@@ -1135,7 +1135,7 @@ function wireLobby() {
   });
   $('btnJoin').addEventListener('click', async () => {
     const code = $('joinCode').value.trim().toUpperCase();
-    if (code.length < 4) { $('joinCode').focus(); return; }
+    if (code.length < 6) { $('joinCode').focus(); return; }
     $('btnJoin').textContent = 'Joining…';
     try {
       await NET.joinRoom(code, 'Player');

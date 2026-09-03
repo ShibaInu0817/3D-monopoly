@@ -10,6 +10,7 @@
 <script type="importmap">
 {
   "imports": {
+    "mqtt": "https://unpkg.com/mqtt@5.14.1/dist/mqtt.esm.js",
     "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
     "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js",
     "three/addons/loaders/GLTFLoader.js": "https://unpkg.com/three@0.184.0/examples/jsm/loaders/GLTFLoader.js",
@@ -20,6 +21,7 @@
   },
   "_integrity_note": "hashes below cover the pinned core modules",
   "integrity": {
+    "https://unpkg.com/mqtt@5.14.1/dist/mqtt.esm.js": "sha384-ufNplDKhe24AgBf7HJcHdH61glWdmXmnJhSuhLocn638Z3Ie0brsswmATDwErtEg",
     "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
     "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT",
     "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js": "sha384-4rziNxOBZKQ69i+w+f89KJ55TCYquwchVbByQwmaOeIOXdOU2PLDn3kOfXHwIJC9",
@@ -107,7 +109,7 @@
   #cashInput, #joinCode { width: 92px; padding: 8px 12px; border-radius: 999px; border: var(--edge);
     background: transparent; color: var(--ink); font: 700 13px/1 inherit; font-family: inherit; }
   #cashInput::placeholder, #joinCode::placeholder { color: var(--soft); font-weight: 600; letter-spacing: 0; }
-  #joinCode { padding: 8px 12px; border-radius: 999px; border: var(--edge);
+  #joinCode { width: 112px; padding: 8px 12px; border-radius: 999px; border: var(--edge);
     background: transparent; color: var(--ink); font: 800 13px/1 inherit; font-family: inherit; }
   #cashInput.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
   .row.opts { grid-template-columns: repeat(4, auto); align-items: start; gap: 18px; row-gap: 14px; }
@@ -842,7 +844,7 @@
       <span class="lbl">Online</span>
       <div class="pills">
         <button class="pill" id="btnHost">Create room</button>
-        <label class="cashCustom"><input id="joinCode" placeholder="code" maxlength="4"></label>
+        <label class="cashCustom"><input id="joinCode" placeholder="code" maxlength="6"></label>
         <button class="pill" id="btnJoin">Join</button>
       </div>
       </div>

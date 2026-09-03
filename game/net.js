@@ -21,15 +21,11 @@ const PREFIX = 'ipohmono-';
 const ICE = {
   iceServers: [
     { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
-    {
-      urls: [
-        'turn:openrelay.metered.ca:80',
-        'turn:openrelay.metered.ca:443',
-        'turn:openrelay.metered.ca:443?transport=tcp',
-      ],
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
+    // No TURN relay is configured. openrelay.metered.ca used to sit here but it
+    // rejects every allocation now, and PeerJS's own defaults no longer resolve,
+    // so this transport can only make direct connections. Paste working TURN
+    // credentials here to revive it:
+    //   { urls: 'turn:<host>:80', username: '<user>', credential: '<pass>' },
   ],
 };
 
