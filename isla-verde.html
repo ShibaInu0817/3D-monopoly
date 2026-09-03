@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="clay" data-board="isla">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Property Board — 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+    "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js",
+    "three/addons/loaders/GLTFLoader.js": "https://unpkg.com/three@0.184.0/examples/jsm/loaders/GLTFLoader.js",
+    "three/addons/utils/BufferGeometryUtils.js": "https://unpkg.com/three@0.184.0/examples/jsm/utils/BufferGeometryUtils.js",
+    "three/addons/utils/SkeletonUtils.js": "https://unpkg.com/three@0.184.0/examples/jsm/utils/SkeletonUtils.js",
+    "three/addons/exporters/OBJExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js",
+    "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js"
+  },
+  "_integrity_note": "hashes below cover the pinned core modules",
+  "integrity": {
+    "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
+    "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT",
+    "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js": "sha384-4rziNxOBZKQ69i+w+f89KJ55TCYquwchVbByQwmaOeIOXdOU2PLDn3kOfXHwIJC9",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js": "sha384-nbwtoZENJD3Vq+ACK0CuGQdPMuDWHkamC2KJD70EV5nfg6jQjfppKOea07YJN+N3",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js": "sha384-VofkvpG6HERhFCYbsUOHeNXBCqID2nfqkQqnVzE1jc/oPcz+qJ13ADdXH08hE+cQ"
+  }
+}
+</script>
+<style>
+  html[data-theme="clay"] {
+    --paper: #fff6ea; --ink: #4a382f; --soft: rgba(74,56,47,0.6);
+    --line: rgba(90,70,60,0.16); --panel: rgba(255,246,234,0.95);
+    --accent: #f4715c; --good: #45a86a; --bad: #e2503f; --warn: #e9a13b;
+    --r: 22px; --r-sm: 14px;
+    --lift: 0 10px 0 rgba(120,92,74,0.16); --lift-sm: 0 6px 0 rgba(120,92,74,0.14);
+    --edge: 2px solid rgba(90,70,60,0.14);
+    --menuBg: radial-gradient(120% 90% at 50% 0%, #ffe3bd 0%, #ffd5b0 45%, #f6b98f 100%);
+  }
+  html[data-theme="paper"] {
+    --paper: #f6f2e9; --ink: #22201c; --soft: rgba(34,32,28,0.6);
+    --line: rgba(34,32,28,0.14); --panel: rgba(246,242,233,0.93);
+    --accent: #2f6f9e; --good: #4f8a55; --bad: #c9503f; --warn: #b8853a;
+    --r: 13px; --r-sm: 10px;
+    --lift: 0 10px 26px rgba(20,30,28,0.14); --lift-sm: 0 6px 16px rgba(20,30,28,0.1);
+    --edge: 1px solid rgba(34,32,28,0.14);
+    --menuBg: radial-gradient(120% 90% at 50% 0%, #eef0e8 0%, #dfe7e4 50%, #c6d2cc 100%);
+  }
+  html[data-theme="arcane"] {
+    --paper: #221e42; --ink: #f4ead0; --soft: rgba(244,234,208,0.6);
+    --line: rgba(232,196,119,0.3); --panel: rgba(34,30,66,0.9);
+    --accent: #e8c477; --good: #63b58a; --bad: #d9634f; --warn: #e8c477;
+    --r: 18px; --r-sm: 12px;
+    --lift: 0 0 0 1px rgba(232,196,119,0.22), 0 18px 44px rgba(0,0,0,0.6);
+    --lift-sm: 0 0 0 1px rgba(232,196,119,0.18), 0 8px 22px rgba(0,0,0,0.5);
+    --edge: 1.5px solid rgba(232,196,119,0.34);
+    --menuBg: radial-gradient(120% 90% at 50% 0%, #3b3168 0%, #221e42 48%, #0e0c22 100%);
+  }
+  html[data-theme="neon"] {
+    --paper: #111726; --ink: #e9f5ff; --soft: rgba(233,245,255,0.62);
+    --line: rgba(140,200,255,0.22); --panel: rgba(15,21,35,0.88);
+    --accent: #14e0c8; --good: #2fe08a; --bad: #ff5c8a; --warn: #ffd36e;
+    --r: 16px; --r-sm: 12px;
+    --lift: 0 0 0 1px rgba(120,220,255,0.18), 0 16px 40px rgba(0,0,0,0.55);
+    --lift-sm: 0 0 0 1px rgba(120,220,255,0.14), 0 8px 20px rgba(0,0,0,0.5);
+    --edge: 1px solid rgba(140,200,255,0.28);
+    --menuBg: radial-gradient(120% 90% at 50% 0%, #1a2440 0%, #0d1424 50%, #05080f 100%);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--paper); color: var(--ink);
+    font: 500 14px/1.45 "Baloo 2", "Helvetica Neue", Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  a { color: var(--accent); } a:hover { opacity: 0.82; }
+  button { font-family: inherit; touch-action: manipulation; }
+  #scene { touch-action: none; }
+  body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+  .lbl { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--soft); }
+
+  /* ---------- menu ---------- */
+  #menu { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px 0;
+    background: var(--menuBg); transition: opacity .45s ease, transform .45s ease; overflow: auto; }
+  #menu.off { opacity: 0; transform: scale(1.04); pointer-events: none; }
+  #menu[hidden] { display: none; }
+  .sheet { width: min(900px, 92vw); padding: 28px 36px 26px; background: var(--panel);
+    border: var(--edge); border-radius: calc(var(--r) + 8px); box-shadow: var(--lift); }
+  .sheet h1 { margin: 4px 0 2px; font-size: 36px; font-weight: 800; line-height: 1; letter-spacing: -0.01em; }
+  .sheet .tag { color: var(--soft); font-size: 14px; font-weight: 600; margin: 0 0 18px; }
+  .row { display: grid; gap: 8px; margin-bottom: 16px; }
+  .boards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .bcard { text-align: left; padding: 0; border: var(--edge); border-radius: var(--r); background: transparent;
+    color: var(--ink); cursor: pointer; overflow: hidden; transition: transform .18s cubic-bezier(.2,1.4,.4,1), box-shadow .2s; }
+  .bcard:hover { transform: translateY(-3px); }
+  .bcard[aria-pressed="true"] { box-shadow: var(--lift-sm); border-color: var(--ink); }
+  .bcard .art { height: 112px; display: grid; place-items: center; position: relative; }
+  .bcard .art svg { width: 100px; height: 100px; }
+  .bcard .cap { padding: 10px 14px 12px; display: grid; gap: 2px; }
+  .bcard .cap b { font-size: 17px; font-weight: 800; }
+  .bcard .cap span { font-size: 12.5px; font-weight: 600; color: var(--soft); }
+  .bcard[aria-pressed="true"] .cap { background: var(--ink); }
+  .bcard[aria-pressed="true"] .cap b { color: var(--paper); }
+  .bcard[aria-pressed="true"] .cap span { color: color-mix(in oklab, var(--paper) 70%, transparent); }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cashCustom { display: flex; align-items: center; }
+  #joinCode { width: 74px; text-transform: uppercase; letter-spacing: 0.14em; }
+  #cashInput, #joinCode { width: 92px; padding: 8px 12px; border-radius: 999px; border: var(--edge);
+    background: transparent; color: var(--ink); font: 700 13px/1 inherit; font-family: inherit; }
+  #cashInput::placeholder, #joinCode::placeholder { color: var(--soft); font-weight: 600; letter-spacing: 0; }
+  #joinCode { padding: 8px 12px; border-radius: 999px; border: var(--edge);
+    background: transparent; color: var(--ink); font: 800 13px/1 inherit; font-family: inherit; }
+  #cashInput.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .row.opts { grid-template-columns: repeat(4, auto); align-items: start; gap: 18px; row-gap: 14px; }
+  .row.opts .col:last-child { justify-self: start; }
+  .row.opts .col { display: grid; gap: 8px; }
+  .pill { padding: 9px 16px; border-radius: 999px; border: var(--edge); background: transparent;
+    color: var(--ink); font-size: 13.5px; font-weight: 700; cursor: pointer;
+    transition: transform .16s cubic-bezier(.2,1.5,.4,1); display: flex; align-items: center; gap: 9px; }
+  .pill:hover { transform: translateY(-2px); }
+  .pill[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .pill .dots { display: flex; }
+  .pill .dots i { width: 11px; height: 11px; border-radius: 50%; margin-left: -4px; border: 2px solid var(--panel); }
+  .pill .dots i:first-child { margin-left: 0; }
+  .pill[aria-pressed="true"] .dots i { border-color: var(--ink); }
+  #btnResume { display: grid; gap: 3px; width: 100%; margin-bottom: 12px; padding: 13px 18px;
+    border-radius: var(--r); border: var(--edge); background: transparent; color: var(--ink);
+    cursor: pointer; text-align: left; font-family: inherit; }
+  #btnResume b { font-size: 15px; font-weight: 800; }
+  #btnResume span { font-size: 12px; font-weight: 600; color: var(--soft); }
+  #btnResume[hidden] { display: none; }
+  .startRow { display: flex; align-items: center; gap: 18px; margin-top: 6px; }
+  #btnStart { flex: 1; padding: 17px; font-size: 18px; font-weight: 800; border-radius: var(--r);
+    border: none; background: var(--ink); color: var(--paper); cursor: pointer;
+    transition: transform .16s cubic-bezier(.2,1.6,.4,1); }
+  #btnStart:hover { transform: translateY(-3px); }
+  #menuBlurb { color: var(--soft); font-size: 13px; font-weight: 600; max-width: 240px; }
+  #btnGallery { padding: 17px 22px; font-size: 15px; font-weight: 700; border-radius: var(--r);
+    border: var(--edge); background: transparent; color: var(--ink); cursor: pointer;
+    transition: transform .16s cubic-bezier(.2,1.6,.4,1); white-space: nowrap; }
+  #btnGallery:hover { transform: translateY(-3px); }
+
+  /* ---------- gallery ---------- */
+  #gallery { position: fixed; inset: 0; z-index: 24; display: grid; place-items: center; padding: 18px;
+    background: color-mix(in oklab, var(--paper) 78%, transparent); backdrop-filter: blur(10px);
+    opacity: 0; transition: opacity .3s ease; }
+  #gallery.on { opacity: 1; }
+  #gallery[hidden] { display: none; }
+  .galSheet { width: min(1080px, 96vw); height: calc(100vh - 36px); display: grid;
+    grid-template-columns: 330px 1fr; grid-template-rows: minmax(0, 1fr); gap: 0; overflow: hidden;
+    background: var(--panel); border: var(--edge); border-radius: calc(var(--r) + 6px); box-shadow: var(--lift); }
+  .galLeft { padding: 20px; display: grid; grid-template-rows: auto auto auto auto 1fr; gap: 12px;
+    border-right: var(--edge); min-height: 0; overflow: auto; align-content: start; }
+  .galLeft h2 { margin: 0; font-size: 24px; font-weight: 800; }
+  #galCanvas { width: 100%; height: 240px; display: block; border-radius: var(--r-sm);
+    background: color-mix(in oklab, var(--ink) 6%, transparent); cursor: grab; }
+  #galNow { font-size: 13px; font-weight: 800; color: var(--accent); }
+  #galStatus { font-size: 11px; font-weight: 600; color: var(--soft); align-self: end; }
+  #galBoards { display: flex; gap: 6px; flex-wrap: wrap; }
+  #galBoards button { padding: 9px 14px; border-radius: 999px; border: var(--edge);
+    background: transparent; color: var(--ink); font-size: 13px; font-weight: 800;
+    font-family: inherit; cursor: pointer; }
+  #galBoards button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .galCard.flat b { color: var(--soft); }
+  #galPieces, #galLooks { display: flex; gap: 6px; flex-wrap: wrap; }
+  #galPieces button, #galLooks button { padding: 8px 12px; border-radius: 999px; border: var(--edge);
+    background: transparent; color: var(--ink); font-size: 12px; font-weight: 700; cursor: pointer; }
+  #galPieces button[aria-pressed="true"], #galLooks button[aria-pressed="true"] {
+    background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  #galPieces .sw { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+  .galRight { padding: 20px 22px; min-height: 0; overflow-y: auto; display: grid; gap: 18px; align-content: start; }
+  .galHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #galClose { padding: 9px 16px; border-radius: var(--r-sm); border: var(--edge); background: transparent;
+    color: var(--ink); font-size: 13px; font-weight: 700; cursor: pointer; }
+  #galClose:hover { background: var(--ink); color: var(--paper); }
+  .galGroup { display: grid; gap: 7px; }
+  .galRow { display: flex; flex-wrap: wrap; gap: 6px; }
+  .galRow button { padding: 7px 11px; border-radius: 9px; border: var(--edge); background: transparent;
+    color: var(--ink); font-size: 11.5px; font-weight: 600; cursor: pointer; font-variant-numeric: tabular-nums; }
+  .galRow button:hover { transform: translateY(-1px); }
+  .galRow button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .galCards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .galCard { text-align: left; padding: 11px 13px; border-radius: var(--r-sm); border: var(--edge);
+    background: transparent; color: var(--ink); cursor: pointer; display: grid; gap: 3px;
+    transition: transform .14s cubic-bezier(.2,1.5,.4,1); }
+  .galCard:hover { transform: translateY(-2px); }
+  .galCard b { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .galCard.up b { color: var(--good); }
+  .galCard.down b { color: var(--bad); }
+  .galCard span { font-size: 12px; font-weight: 600; line-height: 1.3; }
+  .galCard em { font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--soft); }
+  .galPreview { padding: 14px 16px; border-radius: var(--r-sm); border: var(--edge);
+    display: grid; gap: 4px; background: color-mix(in oklab, var(--ink) 5%, transparent); }
+  .galPreview[hidden] { display: none; }
+  .galPreview b { font-size: 30px; font-weight: 800; }
+  .galPreview.collect b { color: var(--good); }
+  .galPreview.pay b { color: var(--bad); }
+  .galPreview span { font-size: 13px; font-weight: 600; color: var(--soft); }
+  @media (max-width: 860px) {
+    .boards { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-height: 620px) {
+    .sheet { padding: 14px 24px 16px; }
+    .sheet h1 { font-size: 23px; margin: 2px 0 0; }
+    .sheet .tag { display: none; }
+    .sheet > .lbl { font-size: 9px; }
+    .row { gap: 5px; margin-bottom: 9px; }
+    .bcard .art { height: 62px; }
+    .bcard .art svg { width: 54px; height: 54px; }
+    .bcard .cap { padding: 6px 10px 7px; }
+    .bcard .cap b { font-size: 14px; }
+    .bcard .cap span { display: none; }
+    .lbl { font-size: 9px; }
+    .pill, #cashInput { padding: 6px 11px; font-size: 12px; }
+    #cashInput { width: 78px; }
+    .startRow { margin-top: 2px; }
+    #menuBlurb { display: none; }
+    #btnGallery, #btnStart { padding: 11px; font-size: 15px; }
+  }
+  @media (max-width: 560px) {
+    #menu { padding: 10px 0; place-items: start center; }
+    .sheet { padding: 20px 18px 22px; width: calc(100vw - 20px); }
+    .sheet h1 { font-size: 27px; }
+    .sheet .tag { font-size: 12.5px; margin-bottom: 14px; }
+    .boards { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .bcard .art { height: 78px; }
+    .bcard .art svg { width: 68px; height: 68px; }
+    .bcard .cap { padding: 8px 10px 10px; }
+    .bcard .cap b { font-size: 14px; }
+    .bcard .cap span { font-size: 10.5px; }
+    .row.opts { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row.opts .col:nth-child(2) { grid-column: 1 / -1; }
+    .pill { padding: 8px 13px; font-size: 12.5px; }
+    .startRow { flex-wrap: wrap; gap: 10px; }
+    #menuBlurb { max-width: none; flex-basis: 100%; order: -1; font-size: 12px; }
+    #btnGallery, #btnStart { padding: 15px; font-size: 15px; }
+    #btnStart { flex: 1 1 60%; }
+  }
+  @media (max-width: 560px) {
+    #gallery { padding: 10px; }
+    .galSheet { width: 100%; height: calc(100vh - 20px); }
+    .galLeft, .galRight { padding: 14px 15px; }
+    .galLeft h2 { font-size: 20px; }
+  }
+  @media (max-width: 880px) {
+    .galSheet { grid-template-columns: 1fr; }
+    .galSheet { grid-template-rows: auto minmax(0, 1fr); }
+    .galLeft { border-right: none; border-bottom: var(--edge); overflow: visible; }
+    #galCanvas { height: 180px; }
+    .galCards { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- in-game HUD ---------- */
+  .hud { position: fixed; z-index: 2; opacity: 0; transition: opacity .5s ease .1s; pointer-events: none; }
+  body.playing .hud { opacity: 1; pointer-events: auto; }
+  .panel { background: var(--panel); backdrop-filter: blur(10px); border: var(--edge);
+    border-radius: var(--r); box-shadow: var(--lift); }
+
+  #turn { top: 20px; left: 20px; padding: 15px 20px 16px; min-width: 214px; }
+  #turn h1 { margin: 2px 0 0; font-size: 30px; font-weight: 800; line-height: 1.05;
+    display: flex; align-items: center; gap: 10px; }
+  #turnDot { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 4px rgba(255,255,255,0.3); }
+  #turn .sub { font-size: 13px; color: var(--soft); margin-top: 2px; }
+  #turn .board { font-size: 11px; font-weight: 700; color: var(--soft); margin-top: 6px;
+    display: flex; align-items: center; gap: 8px; }
+  #btnMenu { border: none; background: none; color: var(--accent); font-size: 11px; font-weight: 700;
+    cursor: pointer; padding: 0; text-decoration: underline; }
+  #rapidChip { padding: 2px 7px; border-radius: 999px; background: var(--warn); color: #fff;
+    font-size: 9.5px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+  #rapidChip[hidden] { display: none; }
+  #btnUnstick { top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 30;
+    padding: 14px 22px; border-radius: 999px; border: none; cursor: pointer;
+    background: var(--bad); color: #fff; font: 800 15px/1 inherit; font-family: inherit;
+    box-shadow: var(--lift); animation: unstickPulse 1.4s ease-in-out infinite; }
+  #btnUnstick[hidden] { display: none; }
+  @keyframes unstickPulse { 50% { transform: translate(-50%, -50%) scale(1.06); } }
+  #cashChip { font-size: 10px; font-weight: 700; color: var(--soft); }
+  #cashChip:empty { display: none; }
+  .botTag { padding: 1px 5px; border-radius: 5px; background: var(--line); color: var(--ink);
+    font-size: 8.5px; font-weight: 800; letter-spacing: 0.08em; margin-left: 5px; vertical-align: 1px; }
+  .pmeta span em { font-style: normal; font-weight: 700; color: var(--warn); }
+
+  #players { top: 158px; left: 20px; width: 246px; display: grid; gap: 9px; }
+  .pcard { display: grid; grid-template-columns: 16px 1fr auto; align-items: center; gap: 11px;
+    padding: 11px 14px; background: var(--panel); border: var(--edge); border-radius: var(--r-sm);
+    box-shadow: var(--lift-sm); transition: transform .22s cubic-bezier(.2,1.4,.4,1); }
+  .pcard.active { transform: translateX(8px) scale(1.03); }
+  .pcard.out { opacity: 0.4; }
+  .swatch { width: 16px; height: 16px; border-radius: 6px; }
+  .pmeta { display: grid; line-height: 1.18; }
+  .pmeta b { font-weight: 700; font-size: 15px; }
+  .pmeta span { font-size: 11px; font-weight: 600; color: var(--soft); }
+  .pcash { font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 700; }
+  .pcash.flash-up { animation: cashUp .7s ease; color: var(--good); }
+  .pcash.flash-down { animation: cashDown .7s ease; color: var(--bad); }
+  @keyframes cashUp { 0%{transform:scale(1)} 30%{transform:scale(1.28)} 100%{transform:scale(1)} }
+  @keyframes cashDown { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 45%{transform:translateX(5px)} 70%{transform:translateX(-3px)} }
+
+  #styles { top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; padding: 7px; align-items: center; }
+  #styles .cap { padding: 0 8px 0 6px; }
+  .sbtn { display: flex; align-items: center; gap: 8px; padding: 9px 14px 9px 11px; border-radius: 999px;
+    border: var(--edge); background: transparent; color: var(--ink); cursor: pointer; font-size: 13px; font-weight: 700;
+    transition: transform .16s cubic-bezier(.2,1.5,.4,1); }
+  .sbtn:hover { transform: translateY(-2px); }
+  .sbtn .dots { display: flex; }
+  .sbtn .dots i { width: 11px; height: 11px; border-radius: 50%; margin-left: -4px; border: 2px solid var(--panel); }
+  .sbtn .dots i:first-child { margin-left: 0; }
+  .sbtn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .sbtn[aria-pressed="true"] .dots i { border-color: var(--ink); }
+
+  #logWrap { top: 96px; right: 20px; width: 282px; padding: 14px 17px 16px; }
+  #log { list-style: none; margin: 9px 0 0; padding: 0; display: grid; gap: 8px; }
+  #log li { display: grid; grid-template-columns: 8px 1fr; gap: 9px; align-items: start; font-size: 12.5px;
+    font-weight: 600; color: var(--soft); }
+  #log li:first-child { color: var(--ink); animation: slideIn .35s ease; }
+  #log i { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(10px) } to { opacity: 1; transform: none } }
+
+  #build { bottom: 324px; right: 20px; width: 282px; padding: 14px 17px 16px; }
+  #buildList { list-style: none; margin: 9px 0 0; padding: 0; display: grid; gap: 7px; max-height: 190px; overflow: auto; }
+  #buildList li { display: grid; grid-template-columns: 9px 1fr 28px 28px; gap: 9px; align-items: center; }
+  .chip { width: 9px; height: 22px; border-radius: 3px; }
+  .bname { font-size: 12.5px; display: grid; line-height: 1.2; font-weight: 700; }
+  .bname em { font-style: normal; font-size: 10.5px; font-weight: 600; color: var(--soft); }
+  #buildList button { height: 26px; border-radius: 9px; border: var(--edge); background: var(--panel);
+    font-size: 16px; font-weight: 700; line-height: 1; cursor: pointer; color: var(--ink); }
+  #buildList button:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+  #buildList button:disabled { opacity: 0.28; cursor: default; }
+  #buildEmpty { font-size: 12.5px; font-weight: 600; color: var(--soft); margin: 8px 0 0; }
+
+  /* the roll control, bottom right */
+  #rollDock { bottom: 152px; right: 20px; display: flex; align-items: flex-end; gap: 14px; }
+  #diceRead { display: grid; gap: 7px; justify-items: center; padding: 12px 14px; }
+  #diceRead .faces { display: flex; gap: 7px; }
+  #diceRead .face { width: 34px; height: 34px; border-radius: 9px; background: var(--panel);
+    border: var(--edge); display: grid; place-items: center; box-shadow: var(--lift-sm); }
+  #diceRead .face svg { width: 26px; height: 26px; fill: var(--ink); }
+  #diceRead .total { font-size: 12px; font-weight: 700; color: var(--soft); }
+  #diceRead .total b { color: var(--ink); font-size: 15px; }
+  #btnRoll { position: relative; width: 132px; height: 132px; border-radius: 50%; border: none; cursor: pointer;
+    background: var(--ink); color: var(--paper); box-shadow: 0 12px 0 color-mix(in oklab, var(--ink) 62%, transparent),
+    0 20px 40px rgba(0,0,0,0.24); display: grid; place-items: center; gap: 2px;
+    transition: transform .14s cubic-bezier(.2,1.6,.4,1), box-shadow .14s; }
+  #btnRoll .cube { width: 46px; height: 46px; border-radius: 12px; background: var(--paper);
+    display: grid; place-items: center; margin: 0 auto 6px; }
+  #btnRoll .cube svg { width: 34px; height: 34px; fill: var(--ink); }
+  #btnRoll span { font-size: 17px; font-weight: 800; letter-spacing: 0.02em; }
+  #btnRoll .inner { display: grid; justify-items: center; }
+  #btnRoll:hover:not(:disabled) { transform: translateY(-3px); }
+  #btnRoll:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 6px 0 color-mix(in oklab, var(--ink) 62%, transparent); }
+  #btnRoll:disabled { opacity: 0.4; cursor: default; box-shadow: 0 8px 0 color-mix(in oklab, var(--ink) 50%, transparent); }
+  #btnRoll.ready::after { content: ""; position: absolute; inset: -8px; border-radius: 50%;
+    border: 3px solid var(--accent); animation: pulse 1.7s ease-out infinite; }
+  @keyframes pulse { 0% { transform: scale(0.94); opacity: 0.9 } 70% { transform: scale(1.14); opacity: 0 } 100% { opacity: 0 } }
+
+  #actions { bottom: 152px; right: 293px; display: flex; align-items: center; gap: 9px; padding: 11px 13px; }
+  button.act { font-size: 14px; font-weight: 700; padding: 13px 20px; border-radius: var(--r-sm);
+    border: var(--edge); background: var(--panel); color: var(--ink); cursor: pointer;
+    transition: transform .14s cubic-bezier(.2,1.5,.4,1); }
+  button.act:hover:not(:disabled) { transform: translateY(-2px); }
+  button.act:disabled { opacity: 0.32; cursor: default; }
+  button.act.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  #btnBuild { display: none; }
+
+  /* ---------- road ahead ---------- */
+  #road { bottom: 24px; left: 20px; right: 20px; display: grid; gap: 6px; }
+  .roadWrap { position: relative; display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center; }
+  .roadNav { width: 30px; height: 62px; border-radius: var(--r-sm); border: var(--edge);
+    background: var(--panel); color: var(--ink); font-size: 15px; font-weight: 800; cursor: pointer;
+    box-shadow: var(--lift-sm); }
+  .roadNav:disabled { opacity: 0.25; cursor: default; }
+  .roadHead { display: flex; align-items: baseline; gap: 8px; padding: 0 2px; }
+  #roadFrom { font-size: 11px; font-weight: 700; color: var(--soft); }
+  #roadCount { font-size: 11px; font-weight: 700; color: var(--soft); margin-left: auto; }
+  #roadList { display: grid; grid-auto-flow: column; grid-auto-columns: 88px; gap: 6px;
+    overflow-x: auto; padding-bottom: 3px; scroll-behavior: smooth; scrollbar-width: none; }
+  #roadList::-webkit-scrollbar { display: none; }
+  .rtile { display: grid; gap: 3px; padding: 7px 8px 8px; text-align: left; cursor: pointer;
+    background: var(--panel); border: var(--edge); border-radius: var(--r-sm); box-shadow: var(--lift-sm);
+    color: var(--ink); transition: transform .14s cubic-bezier(.2,1.5,.4,1); }
+  .rtile:hover { transform: translateY(-2px); }
+  .rtile .bar { height: 5px; border-radius: 3px; background: var(--line); }
+  .rtile .n { font-size: 10.5px; font-weight: 700; line-height: 1.15; min-height: 24px;
+    display: block; overflow: hidden; }
+  .rtile .f { display: flex; align-items: center; justify-content: space-between; gap: 4px;
+    font-size: 10px; font-weight: 700; color: var(--soft); }
+  .rtile .f i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .rtile .step { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; color: var(--soft); }
+  .rtile.hot { outline: 2px solid var(--bad); outline-offset: -2px; }
+  .rtile.mine { outline: 2px solid var(--good); outline-offset: -2px; }
+
+  /* ---------- deed card ---------- */
+  #deed { position: fixed; inset: 0; z-index: 13; display: grid; place-items: center; }
+  #deed[hidden] { display: none; }
+  .deedVeil { position: absolute; inset: 0; background: rgba(10,12,16,0.4); }
+  .deedCard { position: relative; width: min(340px, calc(100vw - 28px)); overflow: hidden;
+    background: var(--panel); border: var(--edge); border-radius: var(--r); box-shadow: 0 26px 60px rgba(8,12,16,0.4);
+    animation: deedIn .3s cubic-bezier(.18,1.4,.4,1); }
+  @keyframes deedIn { from { opacity: 0; transform: scale(0.9) } to { opacity: 1; transform: none } }
+  .deedBand { padding: 12px 16px; background: var(--line); }
+  #deedGroup { font-size: 10px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+  .deedBody { padding: 16px 18px 18px; display: grid; gap: 10px; }
+  .deedBody h3 { margin: 0; font-size: 22px; font-weight: 800; }
+  .deedMeta { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    font-size: 12.5px; font-weight: 600; color: var(--soft); }
+  .deedMeta b { font-size: 19px; font-weight: 800; color: var(--ink); }
+  #deedRents { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+  #deedRents li { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;
+    padding: 4px 0; border-bottom: 1px solid var(--line); }
+  #deedRents li.on { font-weight: 800; color: var(--accent); }
+  #deedRents li span:last-child { font-variant-numeric: tabular-nums; }
+  #deedNote { margin: 0; font-size: 12px; font-weight: 600; color: var(--soft); }
+  #deedNote:empty { display: none; }
+  #deedClose { padding: 12px; border-radius: var(--r-sm); border: none; background: var(--ink);
+    color: var(--paper); font-size: 14px; font-weight: 700; cursor: pointer; }
+
+  /* ---------- online lobby ---------- */
+  #lobby { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center;
+    background: rgba(10,12,16,0.62); backdrop-filter: blur(6px); padding: 20px; }
+  #lobby[hidden] { display: none; }
+  .lobbyBox { width: min(420px, 100%); display: grid; gap: 10px; padding: 26px 26px 22px;
+    background: var(--panel); border: var(--edge); border-radius: var(--r); box-shadow: var(--lift); }
+  #lobbyCode { font-size: 46px; font-weight: 800; letter-spacing: 0.16em; line-height: 1; }
+  #lobbyHint, #lobbyStatus { margin: 0; font-size: 13px; font-weight: 600; color: var(--soft); }
+  #lobbySeats { display: grid; gap: 6px; }
+  #lobbySeats div { display: flex; align-items: center; gap: 9px; padding: 9px 12px;
+    border: var(--edge); border-radius: var(--r-sm); font-size: 14px; font-weight: 700; }
+  #lobbySeats i { width: 11px; height: 11px; border-radius: 4px; }
+  #lobbySeats em { margin-left: auto; font-style: normal; font-size: 11px; font-weight: 700; color: var(--soft); }
+  .lobbyBtns { display: flex; gap: 8px; margin-top: 4px; }
+  .lobbyBtns button { flex: 1; }
+
+  /* ---------- popup ---------- */
+  #moment { position: fixed; inset: 0; z-index: 12; display: grid; place-items: center; pointer-events: none; }
+  #moment[hidden] { display: none; }
+  /* a drawn card is dealt off a deck, not popped like a payment notice */
+  #mDeck, #mBack { display: none; }
+  #moment.drawn #mDeck { display: grid; grid-area: 1 / 1; place-self: center; z-index: 41;
+    pointer-events: none; animation: deckAway .34s ease .6s both; }
+  @keyframes deckAway { to { opacity: 0; transform: scale(.94) translateY(4px); } }
+  #moment.drawn #mDeck i { grid-area: 1 / 1; place-self: center; width: 132px; height: 186px; border-radius: 12px;
+    background: color-mix(in oklab, var(--ink) 16%, var(--paper)); border: var(--edge);
+    box-shadow: var(--lift-sm); animation: deckSettle .5s cubic-bezier(.2,1.1,.3,1) both; }
+  #moment.drawn #mDeck i:nth-child(1) { transform: rotate(-7deg) translate(-6px, 3px); }
+  #moment.drawn #mDeck i:nth-child(2) { transform: rotate(4deg) translate(4px, -2px); animation-delay: .04s; }
+  #moment.drawn #mDeck i:nth-child(3) { animation-delay: .08s; }
+  #moment.drawn #mBack { display: grid; place-items: center; grid-area: 1 / 1; place-self: center;
+    width: 132px; height: 186px; z-index: 43; border-radius: 12px;
+    border: var(--edge); pointer-events: none; box-shadow: var(--lift);
+    background:
+      repeating-linear-gradient(45deg, color-mix(in oklab, var(--accent) 30%, transparent) 0 7px,
+        transparent 7px 14px),
+      color-mix(in oklab, var(--ink) 10%, var(--paper));
+    backface-visibility: hidden;
+    animation: cardLift .82s cubic-bezier(.3,.9,.2,1) both; }
+  #mBackName { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink); background: var(--paper); padding: 4px 8px; border-radius: 999px; border: var(--edge); }
+  #moment.drawn #mCard { position: relative; grid-area: 1 / 1; z-index: 45;
+    animation: cardTurn .46s cubic-bezier(.2,1.05,.3,1) .58s both; }
+  /* once the face has turned the back is out of the stack entirely, so a frozen
+     animation (backgrounded tab, reduced motion) can never cover the card */
+  #moment.drawn.turned #mBack, #moment.drawn.turned #mDeck { display: none; }
+  #moment.drawn .veil { animation: veilPulse .9s ease both; }
+  @keyframes deckSettle {
+    from { opacity: 0; transform: translateY(26px) scale(.9); }
+  }
+  @keyframes cardLift {
+    0%   { opacity: 0; transform: translateY(30px) scale(.86) rotate(-8deg); }
+    26%  { opacity: 1; transform: translateY(0) scale(1) rotate(-3deg); }
+    52%  { opacity: 1; transform: translateY(-58px) scale(1.04) rotate(2deg) rotateY(0deg); }
+    76%  { opacity: 1; transform: translateY(-58px) scale(1.04) rotateY(78deg); }
+    100% { opacity: 0; transform: translateY(-58px) scale(1.06) rotateY(96deg); }
+  }
+  @keyframes cardTurn {
+    from { opacity: 0; transform: perspective(900px) rotateY(-84deg) scale(.94); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes veilPulse {
+    0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 1; }
+  }
+  #moment .veil { position: absolute; inset: 0; background: rgba(10,12,16,0); transition: background .3s; }
+  #moment.on { pointer-events: auto; }
+  #moment.on .veil { background: rgba(10,12,16,0.44); }
+  #mWait { margin: 6px 0 0; font-size: 13px; font-weight: 700; color: var(--soft); }
+  #mWait[hidden] { display: none; }
+  #mCard { position: relative; width: 412px; padding: 34px 34px 28px; text-align: center;
+    background: var(--panel); border: var(--edge); border-radius: 26px; box-shadow: 0 30px 70px rgba(8,12,16,0.38);
+    transform: scale(0.72) rotate(-4deg); opacity: 0; transition: transform .42s cubic-bezier(.18,1.5,.4,1), opacity .22s; }
+  #moment.on #mCard { transform: none; opacity: 1; }
+  #moment.on.pay #mCard { animation: thump .55s cubic-bezier(.2,1.4,.3,1) .08s; }
+  @keyframes thump { 0%,100%{ transform: none } 18%{ transform: translateX(-11px) rotate(-1.4deg) }
+    38%{ transform: translateX(11px) rotate(1.4deg) } 60%{ transform: translateX(-6px) } 80%{ transform: translateX(4px) } }
+  #mBadge { display: inline-block; padding: 6px 14px; border-radius: 999px; font-size: 11px; font-weight: 800;
+    letter-spacing: 0.16em; text-transform: uppercase; color: #fff; }
+  #moment.pay #mBadge { background: var(--bad); }
+  #moment.collect #mBadge { background: var(--good); }
+  #moment.alert #mBadge { background: var(--warn); }
+  #moment.offer #mBadge { background: var(--accent); }
+  #mSwatch { display: inline-block; margin: 14px auto 0; padding: 5px 14px; border-radius: 8px;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+  #mSwatch[hidden] { display: none; }
+  #mAmount { font-size: 80px; font-weight: 800; line-height: 1; margin: 14px 0 4px; font-variant-numeric: tabular-nums; }
+  #moment.pay #mAmount { color: var(--bad); }
+  #moment.collect #mAmount { color: var(--good); }
+  #moment.offer #mAmount { color: var(--ink); }
+  #moment.alert #mAmount { font-size: 46px; color: var(--warn); }
+  #mTitle { font-size: 22px; font-weight: 800; margin: 0; }
+  #mDetail { font-size: 14px; font-weight: 600; color: var(--soft); margin: 6px 0 22px; }
+  #mWho { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center;
+    gap: 8px; padding: 7px 14px; border-radius: 999px; background: var(--ink); color: var(--paper);
+    font-size: 12px; font-weight: 700; }
+  #mWho i { width: 10px; height: 10px; border-radius: 50%; }
+  .mBtns { display: grid; gap: 9px; }
+  #mOk, #mNo { width: 100%; padding: 16px; font-size: 16px; font-weight: 800; border-radius: 16px; border: none;
+    cursor: pointer; transition: transform .14s cubic-bezier(.2,1.6,.4,1); }
+  #mOk { color: #fff; }
+  #mOk:hover, #mNo:hover { transform: translateY(-2px); }
+  #moment.pay #mOk { background: var(--bad); }
+  #moment.collect #mOk { background: var(--good); }
+  #moment.alert #mOk { background: var(--warn); }
+  #moment.offer #mOk { background: var(--good); }
+  #mNo { background: transparent; border: var(--edge); color: var(--soft); padding: 12px; font-size: 14px; }
+  #mNo[hidden] { display: none; }
+  .coin { position: absolute; width: 22px; height: 22px; border-radius: 50%; background: var(--warn);
+    box-shadow: inset 0 0 0 3px rgba(255,255,255,0.45); pointer-events: none;
+    animation: fly 1.1s cubic-bezier(.2,.8,.3,1) forwards; }
+  @keyframes fly { 0% { opacity: 0; transform: translate(0,0) scale(0.4) }
+    18% { opacity: 1 } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.1) rotate(240deg) } }
+
+  #over { position: fixed; inset: 0; z-index: 14; display: grid; place-items: end center;
+    padding: 0 20px calc(env(safe-area-inset-bottom, 0px) + 34px);
+    background: linear-gradient(to top, color-mix(in oklab, var(--paper) 88%, transparent) 0%,
+      color-mix(in oklab, var(--paper) 55%, transparent) 34%, transparent 62%);
+    animation: overIn .5s ease both; pointer-events: none; }
+  #over .box { pointer-events: auto; }
+
+  /* ---------- 怡保美食: the card as a food-court order chit ---------- */
+  html[data-board="ipoh"] #mCard {
+    font-family: "Noto Sans SC", "Baloo 2", sans-serif;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 26px, rgba(122,82,48,0.07) 26px 27px),
+      linear-gradient(180deg, #fffaf0, #fdf3e2);
+    border: 1.5px solid rgba(122,82,48,0.34);
+    border-top: 7px solid #b8452f;
+    box-shadow: 0 0 0 1px rgba(122,82,48,0.1), 0 26px 60px rgba(60,34,14,0.34);
+  }
+  html[data-board="ipoh"] #mCard::before {
+    content: "怡保"; position: absolute; top: 16px; right: 18px;
+    width: 46px; height: 46px; display: grid; place-items: center;
+    border: 2.5px solid rgba(184,69,47,0.62); border-radius: 8px;
+    color: rgba(184,69,47,0.72); font-size: 15px; font-weight: 900; letter-spacing: 1px;
+    transform: rotate(9deg); line-height: 1.05; text-align: center;
+  }
+  html[data-board="ipoh"] #mCard::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 9px;
+    background: radial-gradient(circle at 6px -2px, transparent 6px, #fdf3e2 6px) 0 0/12px 9px repeat-x;
+    filter: drop-shadow(0 1px 0 rgba(122,82,48,0.2));
+  }
+  html[data-board="ipoh"] #mBadge {
+    background: #b8452f; color: #fff8ec; border: none; letter-spacing: 2px;
+    font-weight: 900; border-radius: 4px;
+  }
+  html[data-board="ipoh"] #moment.alert #mBadge { background: #6a7f3a; }
+  html[data-board="ipoh"] #moment.collect #mBadge { background: #2f6f4f; }
+  html[data-board="ipoh"] #mTitle { font-weight: 900; letter-spacing: 0.5px; }
+  html[data-board="ipoh"] #mAmount { font-family: "Noto Sans SC", sans-serif; letter-spacing: -1px; }
+  html[data-board="ipoh"] #mDetail { color: #7a5230; opacity: 0.85; }
+  html[data-board="ipoh"] #mOk { background: #b8452f; color: #fff8ec; }
+  html[data-board="ipoh"] .lbl, html[data-board="ipoh"] #turnName,
+  html[data-board="ipoh"] .pmeta b, html[data-board="ipoh"] #boardName,
+  html[data-board="ipoh"] .rtile .n, html[data-board="ipoh"] #deedName {
+    font-family: "Noto Sans SC", "Baloo 2", sans-serif;
+  }
+  /* the game is over: the bottom band belongs to the win bar and the celebration */
+  .hud { transition: opacity .45s ease; }
+  body.over .hud { opacity: 0; pointer-events: none; }
+  @keyframes overIn { from { opacity: 0 } to { opacity: 1 } }
+  #over[hidden] { display: none; }
+  #over .box { display: flex; align-items: center; gap: 20px; text-align: left;
+    padding: 14px 18px 14px 22px; animation: boxIn .55s cubic-bezier(.18,1.4,.4,1) both .12s; }
+  @keyframes boxIn { from { opacity: 0; transform: translateY(24px) scale(0.94) } to { opacity: 1; transform: none } }
+  #over h2 { font-size: 26px; font-weight: 800; margin: 0; line-height: 1.1; }
+  #over p { margin: 2px 0 0; color: var(--soft); font-weight: 600; font-size: 12.5px; }
+  #over .box > div { display: grid; }
+  #over .box button { flex: none; white-space: nowrap; }
+  @media (max-width: 560px) {
+    #over .box { flex-direction: column; align-items: stretch; text-align: center; gap: 12px; }
+    #over h2 { font-size: 22px; }
+  }
+
+
+  @media (max-width: 1180px) and (min-width: 721px) and (min-height: 521px) { #logWrap, #build { display: none; } }
+
+  /* below ~1000px the centred style bar would collide with the turn card:
+     dock it under the turn card on the left instead */
+  @media (max-height: 760px) and (min-width: 721px) {
+    #players { grid-template-columns: 1fr 1fr; width: 300px; }
+    .pcard { grid-template-columns: 12px 1fr; padding: 8px 10px; gap: 8px; }
+    .pcash { grid-column: 2; }
+  }
+  @media (max-width: 1000px) {
+    #styles { top: 160px; left: 20px; transform: none; max-width: 246px; padding: 5px; }
+    #styles .cap { display: none; }
+    #styles .sbtn { font-size: 0; padding: 7px 9px; gap: 0; }
+    #players { top: 216px; }
+  }
+  /* 721–860px: keep the dock a row and hold the action bar clear of it.
+     (Written for the old bottom:24px dock; the anchors now match the reworked band.) */
+  @media (max-width: 860px) and (min-width: 721px) and (min-height: 521px) {
+    #rollDock { flex-direction: row; align-items: flex-end; gap: 10px; }
+    #diceRead { order: 0; }
+    /* the bottom-right column is fully spoken for at this width (dock + road),
+       so the action bar takes the free top-right corner instead */
+    #actions { left: auto; right: 20px; top: 20px; bottom: auto; transform: none; }
+    #players { grid-template-columns: 1fr 1fr; width: 286px; gap: 7px; }
+    .pcard { padding: 7px 9px; }
+    .pmeta b { font-size: 13px; }
+    .pcash { font-size: 13px; }
+  }
+  /* the tab row only exists on phones; desktop keeps every panel pinned */
+  #tabs { display: none; }
+  .tab { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 15px; border-radius: 999px;
+    border: var(--edge); background: var(--panel); backdrop-filter: blur(10px); color: var(--ink);
+    box-shadow: var(--lift-sm); font: 700 12.5px/1 inherit; font-family: inherit; cursor: pointer;
+    transition: transform .16s cubic-bezier(.2,1.5,.4,1); }
+  .tab b { font-weight: 800; font-size: 10.5px; color: var(--soft); }
+  .tab[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .tab[aria-pressed="true"] b { color: var(--paper); opacity: 0.7; }
+
+  /* ---------- phones (narrow OR short: landscape phones are short-and-wide) ---------- */
+  @media (max-width: 720px), (max-height: 520px) {
+    .hud { --gut: 12px; }
+    #turn { top: calc(env(safe-area-inset-top, 0px) + 12px); left: 12px; right: 12px;
+      min-width: 0; padding: 10px 14px 11px; display: grid; grid-template-columns: 1fr auto; align-items: center; }
+    #turn .lbl { display: none; }
+    #turn h1 { font-size: 21px; }
+    #turn .sub { font-size: 11px; grid-column: 1; }
+    #turn .board { grid-column: 2; grid-row: 1 / span 2; margin: 0; justify-self: end; font-size: 10px; }
+
+    /* one chip row under the turn card; the panels themselves slide up on demand */
+    #tabs { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap;
+      top: calc(env(safe-area-inset-top, 0px) + 84px); left: auto; right: 12px; }
+    .tab { min-height: 40px; padding: 7px 11px; font-size: 11.5px; }
+
+    /* every player's holdings stay on screen; only road + news collapse */
+    #players { top: calc(env(safe-area-inset-top, 0px) + 132px); left: 12px; right: 12px; width: auto;
+      display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; overflow: visible; }
+    .pcard { grid-template-columns: 1fr; padding: 6px 7px; gap: 3px; text-align: center; }
+    .pcard .swatch { justify-self: center; }
+    .pmeta { min-width: 0; }
+    .pmeta b { font-size: 11px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pmeta span { display: none; }
+    .pcash { grid-column: 1; font-size: 11.5px; }
+    #players::-webkit-scrollbar { display: none; }
+    #road, #logWrap {
+      left: 12px; right: 12px; width: auto; top: auto; bottom: 0; transform: translateY(calc(100% + 24px));
+      transition: transform .34s cubic-bezier(.2,1.1,.3,1);
+      background: var(--panel); backdrop-filter: blur(10px); border: var(--edge);
+      border-radius: var(--r) var(--r) 0 0; box-shadow: var(--lift);
+      padding: 14px 14px calc(env(safe-area-inset-bottom, 0px) + 16px); z-index: 8; }
+    body.sheet-road #road, body.sheet-log #logWrap { transform: none; }
+    #logWrap { max-height: 46vh; overflow-y: auto; }
+    #road .roadHead { margin-bottom: 8px; }
+    .pcard.active { transform: none; outline: 2px solid var(--ink); outline-offset: -2px; }
+    .swatch { width: 10px; height: 10px; border-radius: 3px; }
+
+    #styles { top: calc(env(safe-area-inset-top, 0px) + 202px); left: 12px; right: auto;
+      transform: none; max-width: none; padding: 4px; z-index: 3; }
+    #styles .sbtn { padding: 6px 8px; }
+
+    #rollDock { left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+    #btnRoll { width: 92px; height: 92px; box-shadow: 0 8px 0 color-mix(in oklab, var(--ink) 62%, transparent); }
+    #btnRoll .cube { width: 30px; height: 30px; margin-bottom: 3px; }
+    #btnRoll .cube svg { width: 22px; height: 22px; }
+    #btnRoll span { font-size: 14px; }
+    #diceRead { padding: 8px 10px; gap: 5px; }
+    #diceRead .face { width: 26px; height: 26px; border-radius: 7px; }
+    #diceRead .face svg { width: 19px; height: 19px; }
+    #diceRead .total { font-size: 10px; }
+    #diceRead .total b { font-size: 13px; }
+
+    #actions { left: 12px; right: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+      transform: none; display: grid; gap: 7px; padding: 8px; }
+    #btnEnd, #btnBuild, #build { display: none !important; }
+    #roadList { grid-auto-columns: 84px; }
+    button.act { padding: 11px 14px; font-size: 13px; }
+    .hint { display: none; }
+
+    #moment { place-items: end center; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); }
+    #mCard { width: min(412px, calc(100vw - 28px)); padding: 24px 20px 20px; }
+    #mAmount { font-size: 58px; }
+    #mTitle { font-size: 19px; }
+    #over .box { padding: 30px 26px; }
+    #over h2 { font-size: 30px; }
+  }
+  /* short viewports: no vertical room for a tall dock or a stacked player list */
+  @media (max-height: 520px) {
+    #styles { display: none; }
+    #roadList { grid-auto-columns: 78px; }
+    .rtile { padding: 5px 7px 6px; }
+    .rtile .n { min-height: 22px; font-size: 10px; }
+    #tabs { top: calc(env(safe-area-inset-top, 0px) + 85px); }
+    #players { top: calc(env(safe-area-inset-top, 0px) + 85px); left: 12px; right: 180px; }
+    .pcard { padding: 5px 6px; }
+    .pmeta b { font-size: 10px; }
+    .pcash { font-size: 10.5px; }
+    #logWrap { max-height: 52vh; }
+    #rollDock { left: 0; right: 0; flex-direction: row; align-items: flex-end; justify-content: center; gap: 9px; }
+    #btnRoll { width: 74px; height: 74px; box-shadow: 0 6px 0 color-mix(in oklab, var(--ink) 62%, transparent); }
+    #btnRoll .cube { width: 24px; height: 24px; margin-bottom: 2px; }
+    #btnRoll .cube svg { width: 18px; height: 18px; }
+    #btnRoll span { font-size: 12px; }
+    #diceRead { padding: 6px 8px; }
+    #diceRead .face { width: 22px; height: 22px; }
+    #diceRead .face svg { width: 16px; height: 16px; }
+    /* actions hug the left edge so they clear the right-anchored dock */
+    #actions { left: 12px; right: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+      grid-auto-flow: column; gap: 6px; }
+    button.act { padding: 10px 12px; font-size: 12px; }
+    #mCard { padding: 20px 20px 18px; }
+    #mAmount { font-size: 42px; margin: 8px 0 2px; }
+    #mTitle { font-size: 17px; }
+    #mDetail { margin-bottom: 14px; }
+    #mOk, #mNo { padding: 12px; font-size: 14px; }
+  }
+  @media (max-width: 700px) {
+    #btnRoll { width: 104px; height: 104px; }
+    #btnRoll .cube { width: 36px; height: 36px; margin-bottom: 4px; }
+    #btnRoll span { font-size: 15px; }
+    #actions { bottom: 152px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<!-- ---------- menu ---------- -->
+<div id="menu">
+  <div class="sheet">
+    <span class="lbl">PROPERTY TRADING · 3D · HOTSEAT OR ONLINE</span>
+    <h1>Pick your board</h1>
+    <p class="tag">Buy lots, build, collect rent. Last player standing takes the map.</p>
+
+    <div class="row">
+      <div class="boards">
+        <button class="bcard" data-pick="board" data-val="ipoh" aria-pressed="true">
+          <span class="art" style="background:linear-gradient(160deg,#f6e3c8,#dcb98c)">
+            <svg viewBox="0 0 120 120" fill="none">
+              <rect x="10" y="10" width="100" height="100" rx="10" fill="#fdf6e8" stroke="#7a5230" stroke-width="3"/>
+              <rect x="26" y="26" width="68" height="68" rx="6" fill="#f0dcc0"/>
+              <ellipse cx="60" cy="64" rx="26" ry="17" fill="#fff9ee" stroke="#7a5230" stroke-width="3"/>
+              <path d="M40 60 q20 12 40 0" stroke="#c98a3c" stroke-width="4" fill="none"/>
+              <path d="M46 44 q4 -9 -2 -14 M60 42 q4 -10 -2 -15 M74 44 q4 -9 -2 -14" stroke="#b98a5a" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <g fill="#9c6b42"><rect x="14" y="14" width="18" height="12" rx="3"/><rect x="88" y="94" width="18" height="12" rx="3"/></g>
+              <g fill="#d9b23c"><rect x="36" y="14" width="14" height="12" rx="3"/><rect x="70" y="94" width="14" height="12" rx="3"/></g>
+              <g fill="#d44f6e"><rect x="14" y="70" width="12" height="16" rx="3"/><rect x="94" y="34" width="12" height="16" rx="3"/></g>
+            </svg>
+          </span>
+          <span class="cap"><b>怡保美食</b><span>老字号、糖水街、白咖啡</span></span>
+        </button>
+
+        <button class="bcard" data-pick="board" data-val="hustle" aria-pressed="false">
+          <span class="art" style="background:linear-gradient(160deg,#dfe3e8,#b9c2cc)">
+            <svg viewBox="0 0 120 120" fill="none">
+              <rect x="10" y="10" width="100" height="100" rx="10" fill="#f7f5ef" stroke="#5a5f66" stroke-width="3"/>
+              <rect x="26" y="26" width="68" height="68" rx="6" fill="#e6e9ec"/>
+              <rect x="40" y="44" width="16" height="46" fill="#8d949c"/>
+              <rect x="60" y="34" width="16" height="56" fill="#6d747c"/>
+              <rect x="43" y="48" width="4" height="4" fill="#fff"/><rect x="50" y="48" width="4" height="4" fill="#fff"/>
+              <rect x="43" y="58" width="4" height="4" fill="#fff"/><rect x="50" y="58" width="4" height="4" fill="#fff"/>
+              <rect x="63" y="40" width="4" height="4" fill="#fff"/><rect x="70" y="40" width="4" height="4" fill="#fff"/>
+              <rect x="63" y="50" width="4" height="4" fill="#fff"/><rect x="70" y="50" width="4" height="4" fill="#fff"/>
+              <path d="M30 92 h60" stroke="#5a5f66" stroke-width="3"/>
+              <circle cx="84" cy="44" r="9" fill="#e3b731"/>
+              <g fill="#e2803c"><rect x="14" y="14" width="18" height="12" rx="3"/><rect x="88" y="94" width="18" height="12" rx="3"/></g>
+              <g fill="#8a63c4"><rect x="36" y="14" width="14" height="12" rx="3"/><rect x="70" y="94" width="14" height="12" rx="3"/></g>
+              <g fill="#54a465"><rect x="14" y="70" width="12" height="16" rx="3"/><rect x="94" y="34" width="12" height="16" rx="3"/></g>
+            </svg>
+          </span>
+          <span class="cap"><b>Hustle City</b><span>Rise, grind, expense it</span></span>
+        </button>
+
+        
+        <button class="bcard" data-pick="board" data-val="malaysia" aria-pressed="false">
+          <span class="art" style="background:linear-gradient(160deg,#ffd9d0,#ffb9a8)">
+            <svg viewBox="0 0 120 120" fill="none">
+              <rect x="10" y="10" width="100" height="100" rx="10" fill="#fdfaf2" stroke="#7a5c46" stroke-width="3"/>
+              <rect x="26" y="26" width="68" height="68" rx="6" fill="#ffe6c9"/>
+              <circle cx="60" cy="62" r="23" fill="#8ecf9c"/>
+              <path d="M60 30 L66 58 L60 96 L54 58 Z" fill="#fff" stroke="#7a5c46" stroke-width="2"/>
+              <circle cx="60" cy="52" r="8" fill="#e8b93a" stroke="#7a5c46" stroke-width="2"/>
+              <g fill="#d44a4a"><rect x="14" y="14" width="18" height="12" rx="3"/><rect x="88" y="94" width="18" height="12" rx="3"/></g>
+              <g fill="#e8b93a"><rect x="36" y="14" width="14" height="12" rx="3"/><rect x="70" y="94" width="14" height="12" rx="3"/></g>
+              <g fill="#3fa06a"><rect x="14" y="70" width="12" height="16" rx="3"/><rect x="94" y="34" width="12" height="16" rx="3"/></g>
+            </svg>
+          </span>
+          <span class="cap"><b>Jalan Malaysia</b><span>Melaka to KLCC, priced in RM</span></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="row opts">
+      <div class="col">
+      <span class="lbl">Look</span>
+      <div class="pills">
+        <button class="pill" data-pick="style" data-val="clay" aria-pressed="true">
+          <span class="dots"><i style="background:#f4715c"></i><i style="background:#ffd07a"></i><i style="background:#7fd2e6"></i></span>Clay
+        </button>
+        <button class="pill" data-pick="style" data-val="paper" aria-pressed="false">
+          <span class="dots"><i style="background:#c9503f"></i><i style="background:#dcae5c"></i><i style="background:#7fb5c4"></i></span>Paper
+        </button>
+        <button class="pill" data-pick="style" data-val="arcane" aria-pressed="false">
+          <span class="dots"><i style="background:#e8c477"></i><i style="background:#a06ede"></i><i style="background:#63b58a"></i></span>Arcane
+        </button>
+        <button class="pill" data-pick="style" data-val="neon" aria-pressed="false">
+          <span class="dots"><i style="background:#ff5c8a"></i><i style="background:#14e0c8"></i><i style="background:#2fe08a"></i></span>Neon
+        </button>
+      </div>
+      </div>
+      <div class="col">
+      <span class="lbl">Pace</span>
+      <div class="pills">
+        <button class="pill" data-pick="rapid" data-val="off" aria-pressed="true">Standard</button>
+        <button class="pill" data-pick="rapid" data-val="on" aria-pressed="false">Rapid</button>
+      </div>
+      </div>
+      <div class="col">
+      <span class="lbl">Starting budget</span>
+      <div class="pills">
+        <button class="pill" data-pick="cash" data-val="300" aria-pressed="true">$300</button>
+        <button class="pill" data-pick="cash" data-val="750" aria-pressed="false">$750</button>
+        <button class="pill" data-pick="cash" data-val="1500" aria-pressed="false">$1,500</button>
+        <label class="cashCustom">
+          <input id="cashInput" type="number" min="50" max="20000" step="50" placeholder="custom">
+        </label>
+      </div>
+      </div>
+      <div class="col">
+      <span class="lbl">Online</span>
+      <div class="pills">
+        <button class="pill" id="btnHost">Create room</button>
+        <label class="cashCustom"><input id="joinCode" placeholder="code" maxlength="4"></label>
+        <button class="pill" id="btnJoin">Join</button>
+      </div>
+      </div>
+      <div class="col">
+      <span class="lbl">Bots</span>
+      <div class="pills">
+        <button class="pill" data-pick="bots" data-val="0" aria-pressed="true">0</button>
+        <button class="pill" data-pick="bots" data-val="1" aria-pressed="false">1</button>
+        <button class="pill" data-pick="bots" data-val="2" aria-pressed="false">2</button>
+        <button class="pill" data-pick="bots" data-val="3" aria-pressed="false">3</button>
+      </div>
+      </div>
+      <div class="col">
+      <span class="lbl">Players</span>
+      <div class="pills">
+        <button class="pill" data-pick="players" data-val="2" aria-pressed="false">2</button>
+        <button class="pill" data-pick="players" data-val="3" aria-pressed="false">3</button>
+        <button class="pill" data-pick="players" data-val="4" aria-pressed="true">4</button>
+      </div>
+      </div>
+    </div>
+
+    <button id="btnResume" hidden><b>继续上一局 · Resume</b><span id="resumeSub"></span></button>
+
+    <div class="startRow">
+      <p id="menuBlurb">An island of coves, groves and lighthouses.</p>
+      <button id="btnGallery">Gallery</button>
+      <button id="btnStart">Start game</button>
+    </div>
+  </div>
+</div>
+
+<div id="gallery" hidden>
+  <div class="galSheet">
+    <div class="galLeft">
+      <h2>Piece gallery</h2>
+      <canvas id="galCanvas"></canvas>
+      <div>
+        <div class="lbl">Now playing</div>
+        <div id="galNow">idle</div>
+      </div>
+      <div id="galPieces">
+        <button data-piece="0" aria-pressed="true"><span class="sw" style="background:#d6503e"></span>Piece 1</button>
+        <button data-piece="1" aria-pressed="false"><span class="sw" style="background:#2f6f9e"></span>Piece 2</button>
+        <button data-piece="2" aria-pressed="false"><span class="sw" style="background:#d9a12a"></span>Piece 3</button>
+        <button data-piece="3" aria-pressed="false"><span class="sw" style="background:#4f8a55"></span>Piece 4</button>
+      </div>
+      <div id="galStatus">Drag to spin · Esc to close</div>
+    </div>
+    <div class="galRight">
+      <div class="galHead">
+        <div>
+          <div class="lbl">Card deck</div>
+          <div style="font-size:13px;font-weight:600;color:var(--soft)">Every card on the selected board · <span id="galCardCount"></span></div>
+        </div>
+        <button id="galClose">Close</button>
+      </div>
+      <div id="galBoards"></div>
+      <div class="galPreview" id="galPreview" hidden>
+        <b id="galPreviewAmt">+$60</b>
+        <span id="galPreviewText"></span>
+      </div>
+      <div id="galCardList"></div>
+      <div class="galGroup">
+        <span class="lbl">Look</span>
+        <div id="galLooks">
+          <button data-look="clay" aria-pressed="true">Clay</button>
+          <button data-look="paper" aria-pressed="false">Paper</button>
+          <button data-look="arcane" aria-pressed="false">Arcane</button>
+          <button data-look="neon" aria-pressed="false">Neon</button>
+        </div>
+      </div>
+      <div class="lbl">All 32 clips</div>
+      <div id="galClips"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- HUD ---------- -->
+<div class="hud panel" id="turn">
+  <span class="lbl" id="nowPlaying">Now playing</span>
+  <h1><span id="turnDot"></span><span id="turnName">Coral</span></h1>
+  <span class="sub"><span id="onLabel">on</span> <span id="tileRead">开市·饮早茶</span></span>
+  <div class="board"><span id="boardName">怡保美食</span><span id="rapidChip" hidden>Rapid</span><span id="cashChip"></span><button id="btnMenu">change board</button></div>
+</div>
+
+<button class="hud" id="btnUnstick" hidden>卡住了？点这里</button>
+
+<div class="hud" id="tabs">
+  <button class="tab" data-sheet="road" aria-pressed="false"><span id="tabRoad">Road</span></button>
+  <button class="tab" data-sheet="log" aria-pressed="false"><span id="tabLog">News</span></button>
+</div>
+
+<div class="hud" id="players"></div>
+
+<div class="hud panel" id="styles">
+  <span class="lbl cap">Style</span>
+  <button class="sbtn" title="Clay — soft toy blocks" aria-label="Clay — soft toy blocks" data-style="clay" aria-pressed="true">
+    <span class="dots"><i style="background:#f4715c"></i><i style="background:#ffd07a"></i><i style="background:#7fd2e6"></i></span>Clay
+  </button>
+  <button class="sbtn" title="Paper — pressed card and linen" aria-label="Paper — pressed card and linen" data-style="paper" aria-pressed="false">
+    <span class="dots"><i style="background:#c9503f"></i><i style="background:#dcae5c"></i><i style="background:#7fb5c4"></i></span>Paper
+  </button>
+  <button class="sbtn" title="Arcane — twilight and gold leaf" aria-label="Arcane — twilight and gold leaf" data-style="arcane" aria-pressed="false">
+    <span class="dots"><i style="background:#e8c477"></i><i style="background:#a06ede"></i><i style="background:#63b58a"></i></span>Arcane
+  </button>
+  <button class="sbtn" title="Neon — arcade night" aria-label="Neon — arcade night" data-style="neon" aria-pressed="false">
+    <span class="dots"><i style="background:#ff5c8a"></i><i style="background:#14e0c8"></i><i style="background:#2fe08a"></i></span>Neon
+  </button>
+</div>
+
+<div class="hud panel" id="logWrap">
+  <div class="lbl" id="newsTitle">Harbour news</div>
+  <ul id="log"></ul>
+</div>
+
+<div class="hud panel" id="build">
+  <div class="lbl" id="buildTitle">Build — complete sets only</div>
+  <p id="buildEmpty"></p>
+  <ul id="buildList"></ul>
+</div>
+
+<div class="hud" id="rollDock">
+  <div class="panel" id="diceRead">
+    <div class="faces"><span class="face" id="dieA"></span><span class="face" id="dieB"></span></div>
+    <span class="total"><span id="totalLabel">total</span> <b id="dieTotal">2</b></span>
+  </div>
+  <button id="btnRoll">
+    <span class="inner">
+      <span class="cube"><svg viewBox="0 0 100 100"><circle cx="28" cy="28" r="9"/><circle cx="72" cy="28" r="9"/><circle cx="50" cy="50" r="9"/><circle cx="28" cy="72" r="9"/><circle cx="72" cy="72" r="9"/></svg></span>
+      <span id="rollLabel">Roll</span>
+    </span>
+  </button>
+</div>
+
+<div class="hud" id="road">
+  <div class="roadHead"><span class="lbl" id="roadTitle">Road ahead</span><span id="roadFrom"></span><span id="roadCount"></span></div>
+  <div class="roadWrap">
+    <button class="roadNav" id="roadPrev" aria-label="Earlier tiles">‹</button>
+    <div id="roadList"></div>
+    <button class="roadNav" id="roadNext" aria-label="Later tiles">›</button>
+  </div>
+</div>
+
+<div id="deed" hidden>
+  <div class="deedVeil"></div>
+  <div class="deedCard">
+    <div class="deedBand" id="deedBand"><span id="deedGroup">Coves</span></div>
+    <div class="deedBody">
+      <h3 id="deedName"></h3>
+      <div class="deedMeta"><span id="deedOwner"></span><b id="deedPrice"></b></div>
+      <ul id="deedRents"></ul>
+      <p id="deedNote"></p>
+      <button id="deedClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="hud panel" id="actions">
+  <button class="act primary" id="btnEnd">End turn</button>
+  <button class="act" id="btnCam"><span id="camLabel">Camera:</span> <span id="camMode">Follow</span></button>
+  <button class="act" id="btnBuild">Build</button>
+</div>
+
+<div id="moment" hidden>
+  <div class="veil"></div>
+  <div id="mDeck"><i></i><i></i><i></i></div>
+  <div id="mBack"><span id="mBackName">Chance</span></div>
+  <div id="mCard">
+    <div id="mWho"><i></i><span id="mWhoName">Coral</span></div>
+    <span id="mBadge">Rent due</span>
+    <span id="mSwatch" hidden>Coves</span>
+    <div id="mAmount">$0</div>
+    <p id="mTitle">Rent at Kelp Cove</p>
+    <p id="mDetail">Paid to Cobalt</p>
+    <div class="mBtns">
+      <button id="mOk">Pay up</button>
+      <button id="mNo" hidden>No thanks</button>
+    </div>
+    <p id="mWait" hidden>Waiting…</p>
+  </div>
+</div>
+
+<div id="lobby" hidden>
+  <div class="lobbyBox panel">
+    <div class="lbl">Room code</div>
+    <div id="lobbyCode">— — — —</div>
+    <p id="lobbyHint">Share this code. Players join from the menu.</p>
+    <div class="lbl">Players</div>
+    <div id="lobbySeats"></div>
+    <p id="lobbyStatus"></p>
+    <div class="lobbyBtns">
+      <button class="act primary" id="btnLobbyStart">Start game</button>
+      <button class="act" id="btnLobbyLeave">Leave</button>
+    </div>
+  </div>
+</div>
+
+<div id="over" hidden>
+  <div class="box panel">
+    <div>
+      <h2><span id="overName">Coral</span> <span id="overLine"></span></h2>
+      <p id="overSub"></p>
+    </div>
+    <button class="act primary" id="btnRestart">New game</button>
+  </div>
+</div>
+
+
+<script type="module" src="./game/main.js"></script>
+</body>
+</html>
