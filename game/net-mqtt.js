@@ -23,6 +23,10 @@ const BROKERS = [
   'wss://test.mosquitto.org:8081/mqtt',
   'wss://broker.emqx.io:8084/mqtt',
 ];
+// Bumped whenever the wire format changes. Both pages are served from a CDN that
+// caches for 10 minutes, so one device can easily be a version behind the other;
+// without this the mismatch is silent and the join just never completes.
+export const BUILD = 'mqtt-1';
 const PREFIX = 'ipohmono/room/';
 const JOIN_MS = 12000;      // how long a guest waits for the host to answer
 const DIAL_MS = 7000;       // per-broker connect budget before trying the next
@@ -130,6 +134,11 @@ function onHostMsg(_t, buf) {
   if (!m || m.from === me) return;             // our own echo
 
   if (m.t === 'hello') {
+    if (m.v !== BUILD) {                        // stale cached page on the other device
+      pub({ t: 'badver', to: m.from, need: BUILD });
+      status('A player is on an old version of the page');
+      return;
+    }
     let seat = owners.get(m.from);
     if (seat === undefined) {
       // lowest free seat, not seats.length — that collides once a middle seat is freed
@@ -191,12 +200,17 @@ export async function joinRoom(code, nick) {
           clearTimeout(t); client.removeListener('message', probe);
           rej(new Error('That room is full.'));
         }
+        if (m.t === 'badver') {
+          clearTimeout(t); client.removeListener('message', probe);
+          rej(new Error('This page is a different version from the host (' + BUILD +
+            ' vs ' + m.need + '). Reload both devices, bypassing the cache.'));
+        }
       }
       client.on('message', probe);
       // the host may still be settling its own subscription; say hello a few times
-      pub({ t: 'hello', nick });
-      setTimeout(() => net.mode === 'guest' && pub({ t: 'hello', nick }), 1200);
-      setTimeout(() => net.mode === 'guest' && pub({ t: 'hello', nick }), 4000);
+      pub({ t: 'hello', nick, v: BUILD });
+      setTimeout(() => net.mode === 'guest' && pub({ t: 'hello', nick, v: BUILD }), 1200);
+      setTimeout(() => net.mode === 'guest' && pub({ t: 'hello', nick, v: BUILD }), 4000);
     });
   } catch (err) { leave(); throw err; }
 }

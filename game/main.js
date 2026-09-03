@@ -1109,9 +1109,10 @@ function renderSeats(seats) {
   }
   $('lobbySeats').innerHTML = rows.join('');
   $('btnLobbyStart').hidden = NET.net.mode !== 'host';
-  $('lobbyHint').textContent = NET.net.mode === 'host'
+  // build shown on both screens so a stale cached page is obvious at a glance
+  $('lobbyHint').textContent = (NET.net.mode === 'host'
     ? 'Share this code. Unclaimed seats play as bots.'
-    : 'Waiting for the host to start.';
+    : 'Waiting for the host to start.') + '  ·  build ' + NET.BUILD;
 }
 
 function wireLobby() {
@@ -1126,6 +1127,8 @@ function wireLobby() {
       const code = await NET.createRoom('Host', choice.players);
       $('lobbyCode').textContent = code;
       $('lobby').hidden = false;
+      $('btnHost').textContent = 'Create room';
+      $('lobbyStatus').textContent = 'Room open. Waiting for players…';
       renderSeats(NET.net.seats);
     } catch (err) {
       NET.leave();
@@ -1135,12 +1138,20 @@ function wireLobby() {
   });
   $('btnJoin').addEventListener('click', async () => {
     const code = $('joinCode').value.trim().toUpperCase();
-    if (code.length < 6) { $('joinCode').focus(); return; }
+    if (code.length < 6) {
+      $('joinCode').focus();
+      // silently doing nothing here reads as a dead button, which is exactly how
+      // a stale 4-character code from a cached page used to present
+      alert('Room codes are 6 characters. If the host is showing a 4-character code, '
+        + 'that page is an old cached version — reload both devices.');
+      return;
+    }
     $('btnJoin').textContent = 'Joining…';
     try {
       await NET.joinRoom(code, 'Player');
       $('lobbyCode').textContent = code;
       $('lobby').hidden = false;
+      $('lobbyStatus').textContent = 'Connected. Waiting for the host to start.';
       renderSeats(NET.net.seats);
     } catch (err) {
       NET.leave();
