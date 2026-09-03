@@ -10,6 +10,34 @@
 const PEERJS = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
 const PREFIX = 'ipohmono-';
 
+// PeerJS 1.5.4 ships defaults pointing at eu-0/us-0.turn.peerjs.com, which no
+// longer resolve — so out of the box there is no relay and only peers that can
+// reach each other directly connect. Two tabs on one machine always can (they
+// pair on host candidates and never need STUN at all); two devices behind
+// different NATs usually cannot. These are live servers, so a relayed path
+// exists when the direct one fails.
+// The openrelay credentials are a shared free tier: fine for playtesting, worth
+// swapping for your own (Metered/Cloudflare/Twilio) if you rely on this.
+const ICE = {
+  iceServers: [
+    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp',
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+  ],
+};
+
+// A same-machine connect settles in milliseconds; a cross-device one has to
+// gather candidates and run connectivity checks, which routinely takes >4s on
+// mobile and longer still when it has to fall back to a relay.
+const CONNECT_MS = 15000;
+
 export const net = {
   mode: 'off',          // off | host | guest
   seat: 0,
@@ -34,6 +62,16 @@ function loadPeer() {
   });
 }
 
+// The broker socket can drop while the host waits for someone to type the code
+// (sleep, Wi-Fi switch, idle). PeerJS does not re-open it on its own, and until
+// it does the room silently stops being findable by anyone else.
+function keepAlive(p) {
+  p.on('disconnected', () => {
+    status('Reconnecting to the room broker…');
+    try { p.reconnect(); } catch (e) { /* already destroyed */ }
+  });
+}
+
 const status = t => net.onStatus && net.onStatus(t);
 const shortCode = () => Math.random().toString(36).slice(2, 6).toUpperCase();
 
@@ -48,7 +86,8 @@ export async function createRoom(nick, maxPlayers) {
   if (location.protocol === 'file:') {
     throw new Error('Peer-to-peer needs a web address: serve the folder over http(s) instead of opening the file directly.');
   }
-  peer = new window.Peer(PREFIX + code, { debug: 1 });
+  peer = new window.Peer(PREFIX + code, { debug: 1, config: ICE });
+  keepAlive(peer);
   try {
     await new Promise((res, rej) => {
       const t = setTimeout(() => rej(new Error('The connection broker did not respond.')), 15000);
@@ -116,7 +155,8 @@ export async function joinRoom(code, nick) {
   if (location.protocol === 'file:') {
     throw new Error('Peer-to-peer needs a web address: serve the folder over http(s) instead of opening the file directly.');
   }
-  peer = new window.Peer({ debug: 1 });
+  peer = new window.Peer({ debug: 1, config: ICE });
+  keepAlive(peer);
   let peerErr = null;
   peer.on('error', e => { peerErr = e; status(explain(e)); });
   try {
@@ -129,29 +169,46 @@ export async function joinRoom(code, nick) {
 
   // a room registered a moment ago may not be resolvable yet: retry before giving up
   const target = PREFIX + String(code).trim().toUpperCase();
-  let c = null;
-  for (let attempt = 0; attempt < 4 && !c; attempt++) {
+  let c = null, sawIce = false, iceState = '';
+  for (let attempt = 0; attempt < 3 && !c; attempt++) {
     peerErr = null;
     const tryConn = peer.connect(target, { reliable: true });
     const ok = await new Promise(res => {
-      const t = setTimeout(() => res(false), 4000);
+      const t = setTimeout(() => res(false), CONNECT_MS);
       tryConn.on('open', () => { clearTimeout(t); res(true); });
       tryConn.on('error', () => { clearTimeout(t); res(false); });
+      // ICE only starts once the host has answered, so any state here proves the
+      // room was found and separates "wrong code" from "cannot reach that device".
+      tryConn.on('iceStateChanged', st => {
+        sawIce = true; iceState = st;
+        if (st === 'failed') { clearTimeout(t); res(false); }
+        else if (st !== 'closed') status('Negotiating… (' + st + ')');
+      });
       const poll = setInterval(() => {
         if (peerErr && peerErr.type === 'peer-unavailable') { clearInterval(poll); clearTimeout(t); res(false); }
       }, 120);
-      setTimeout(() => clearInterval(poll), 4200);
+      setTimeout(() => clearInterval(poll), CONNECT_MS + 200);
     });
     if (ok) c = tryConn;
     else { try { tryConn.close(); } catch (e) { /* never opened */ }
-      status('Retrying… (' + (attempt + 1) + '/4)');
+      status('Retrying… (' + (attempt + 1) + '/3)');
       await new Promise(r => setTimeout(r, 900)); }
   }
   if (!c) {
     leave();
     // the broker answered (we got an id) but the room never did
+    const shown = String(code).toUpperCase();
+    if (peerErr && peerErr.type === 'peer-unavailable') {
+      throw new Error('No room ' + shown + '. Check the code and that the host still has the page open.');
+    }
+    // The host answered but the two devices never built a path to each other.
+    if (sawIce) {
+      throw new Error('Found room ' + shown + ', but could not open a connection to the host (ICE ' +
+        (iceState || 'failed') + '). A network in between is blocking peer-to-peer — try both ' +
+        'devices on the same Wi-Fi, or off a VPN or corporate/guest network.');
+    }
     throw new Error(peerErr ? explain(peerErr)
-      : 'Reached the connection broker but not room ' + String(code).toUpperCase() +
+      : 'Reached the connection broker but not room ' + shown +
         '. Check the code, that the host still has their page open, and that both pages are ' +
         'real browser tabs — an embedded preview frame usually blocks peer-to-peer.');
   }
