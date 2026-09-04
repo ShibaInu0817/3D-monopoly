@@ -363,19 +363,92 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 /* Kenney Mini Characters (CC0). Skinned, and the pack ships 33 clips —
    idle, walk, jump, sit, emote-yes/no, die — so each piece keeps its rig. */
-const PIECE_URLS = ['./assets/pieces/piece-1.glb', './assets/pieces/piece-2.glb',
-                    './assets/pieces/piece-3.glb', './assets/pieces/piece-4.glb'];
+const PIECE_URLS = Array.from({ length: 12 },
+  (_, i) => './assets/pieces/char-' + String(i + 1).padStart(2, '0') + '.glb');
+
+/* Named from each model's own look — the order matches PIECE_URLS, and these
+   names are what the player carries on the board. */
+export const CHARACTERS = [
+  { name: '霞姐',   role: '茶室阿姐',   line: '一手抹桌，一手端茶' },
+  { name: '阿德',   role: '打包大王',   line: '眼镜一戴，排队最快' },
+  { name: '小敏',   role: '晨跑健将',   line: '五点半就绕完一圈' },
+  { name: '光头炳', role: '炒粉师傅',   line: '锅气全靠这双手' },
+  { name: '妮妮',   role: '背包学生',   line: '连帽一拉就去吃' },
+  { name: '阿祥',   role: '交通警',     line: '这条街他说了算' },
+  { name: '慧敏',   role: '写字楼会计', line: '每一分都算得清' },
+  { name: '陈老板', role: '收租佬',     line: '西装笔挺，租金准时' },
+  { name: '阿玲',   role: '夜班护士',   line: '下班第一站是夜市' },
+  { name: '大雄',   role: '工地师傅',   line: '护目镜一戴就开工' },
+  { name: '珍珍',   role: '观光客',     line: '背包塞满伴手礼' },
+  { name: '阿豹',   role: '摩托快递',   line: '巷子窄他更快' },
+];
 const pieceProtos = [];
+const pieceJobs = [];
+let pieceLoader = null;
+
+/** One character, on demand. The select shows the first the moment it lands
+ *  instead of waiting on the whole cast. */
+export function loadPiece(i) {
+  const k = ((i % PIECE_URLS.length) + PIECE_URLS.length) % PIECE_URLS.length;
+  if (pieceProtos[k]) return Promise.resolve(pieceProtos[k]);
+  if (!pieceJobs[k]) {
+    pieceLoader = pieceLoader || new GLTFLoader();
+    pieceJobs[k] = pieceLoader.loadAsync(PIECE_URLS[k]).then(g => {
+      g.scene.name = 'piece_proto_' + k;
+      pieceProtos[k] = { scene: g.scene, clips: g.animations };
+      return pieceProtos[k];
+    });
+  }
+  return pieceJobs[k];
+}
+
+/** Warm the rest in the background; callers do not wait on it. */
+export function prefetchPieces() { PIECE_URLS.forEach((_, i) => loadPiece(i)); }
+
+export function pieceReady(i) {
+  return !!pieceProtos[((i % PIECE_URLS.length) + PIECE_URLS.length) % PIECE_URLS.length];
+}
 
 export async function loadPieces() {
-  if (pieceProtos.length) return pieceProtos;
-  const loader = new GLTFLoader();
-  const gltfs = await Promise.all(PIECE_URLS.map(u => loader.loadAsync(u)));
-  gltfs.forEach((g, i) => {
-    g.scene.name = 'piece_proto_' + i;
-    pieceProtos.push({ scene: g.scene, clips: g.animations });
-  });
+  await Promise.all(PIECE_URLS.map((_, i) => loadPiece(i)));
   return pieceProtos;
+}
+
+/* Kenney City Kit (CC0). Sample houses and towers stand in for the
+   procedural boxes, normalised so a tile's row of them still fits. */
+const HOUSE_URLS = ['./assets/buildings/house-a.glb', './assets/buildings/house-b.glb',
+                    './assets/buildings/house-c.glb'];
+const TOWER_URLS = ['./assets/buildings/tower-a.glb', './assets/buildings/tower-b.glb',
+                    './assets/buildings/tower-c.glb', './assets/buildings/tower-d.glb'];
+const houseProtos = [], towerProtos = [];
+
+/** Sit a kit model on y=0 at a target height, shrinking further if its
+ *  footprint would then overhang the tile. Height-first keeps a row of
+ *  different houses reading as one street. */
+function normalise(src, height, maxFoot) {
+  const g = new THREE.Group();
+  const model = src.clone(true);
+  const box = new THREE.Box3().setFromObject(model);
+  const size = box.getSize(new THREE.Vector3());
+  let s = height / Math.max(size.y, 0.0001);
+  const foot = Math.max(size.x, size.z) * s;
+  if (maxFoot && foot > maxFoot) s *= maxFoot / foot;
+  model.scale.setScalar(s);
+  model.position.set(-((box.min.x + box.max.x) / 2) * s, -box.min.y * s, -((box.min.z + box.max.z) / 2) * s);
+  model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  g.add(model);
+  return g;
+}
+
+export async function loadBuildings() {
+  if (houseProtos.length) return;
+  const loader = new GLTFLoader();
+  const [houses, towers] = await Promise.all([
+    Promise.all(HOUSE_URLS.map(u => loader.loadAsync(u))),
+    Promise.all(TOWER_URLS.map(u => loader.loadAsync(u))),
+  ]);
+  houses.forEach(g => houseProtos.push(g.scene));
+  towers.forEach(g => towerProtos.push(g.scene));
 }
 
 const CLIP_LOOP = { idle: true, walk: true, sprint: true, sit: false, crouch: false, die: false };
@@ -500,7 +573,12 @@ export const DIE_UP = {
   4: [0, 0, -Math.PI / 2], 5: [Math.PI / 2, 0, 0], 6: [Math.PI, 0, 0],
 };
 
-function makeHouse(name) {
+function makeHouse(name, variant) {
+  if (houseProtos.length) {
+    const g = normalise(houseProtos[variant % houseProtos.length], 0.032, 0.040);
+    g.name = name;
+    return g;
+  }
   const g = new THREE.Group();
   g.name = name;
   const w = 0.032, hh = 0.026, d = 0.028;
@@ -544,6 +622,37 @@ function makeTower(name) {
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.012, 24), MATS.wall);
   base.name = name + '_base'; base.position.y = 0.006; base.castShadow = true;
   g.add(base, shaft, pod, ring, spire);
+  return g;
+}
+
+/** A little town on the island: kit towers ringed by houses. Falls back to the
+ *  procedural tower until the city kit has loaded. */
+function makeSkyline(name) {
+  const g = new THREE.Group();
+  g.name = name;
+  if (!towerProtos.length) return makeTower(name);
+  const plaza = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.155, 0.008, 48), MATS.sand);
+  plaza.name = name + '_plaza'; plaza.position.y = 0.004; plaza.receiveShadow = true;
+  g.add(plaza);
+
+  // three towers of different heights, off-centre so the skyline reads at an angle
+  [[0.0, 0.0, 0.155, 0], [-0.06, 0.045, 0.115, 1], [0.055, 0.05, 0.095, 2]]
+    .forEach(([x, z, h, v], k) => {
+      const t = normalise(towerProtos[v % towerProtos.length], h, 0.075);
+      t.name = name + '_tower_' + k;
+      t.position.set(x, 0.008, z);
+      t.rotation.y = k * 0.7;
+      g.add(t);
+    });
+  // low houses around the base for scale
+  [[-0.105, -0.03], [-0.045, -0.075], [0.04, -0.062], [0.105, 0.01], [0.085, 0.085], [-0.11, 0.075]]
+    .forEach(([x, z], k) => {
+      const hs = normalise(houseProtos[k % houseProtos.length], 0.042, 0.052);
+      hs.name = name + '_house_' + k;
+      hs.position.set(x, 0.008, z);
+      hs.rotation.y = (k % 4) * Math.PI / 2;
+      g.add(hs);
+    });
   return g;
 }
 
@@ -619,17 +728,27 @@ export class BoardView {
     land.name = 'island'; land.position.y = TOP + 0.01; land.receiveShadow = true; land.castShadow = true;
     G.add(land);
 
-    const centre = BOARD.centre === 'tower' ? makeTower('centre_tower')
+    const centre = BOARD.centre === 'skyline' ? makeSkyline('centre_skyline')
+      : BOARD.centre === 'tower' ? makeTower('centre_tower')
       : BOARD.centre === 'crystal' ? makeCrystal('centre_crystal')
       : makeLighthouse('centre_lighthouse');
-    centre.scale.setScalar(BOARD.centre === 'lighthouse' ? 1.7 : 1.5);
-    centre.position.set(-0.03, TOP + 0.016, -0.02);
+    const town = BOARD.centre === 'skyline';
+    centre.scale.setScalar(town ? 1.7 : BOARD.centre === 'lighthouse' ? 1.7 : 1.5);
+    centre.position.set(town ? 0 : -0.03, TOP + 0.016, town ? 0 : -0.02);
     G.add(centre);
-    this.beacon = centre;
+    // the render loop slowly spins the beacon; a whole town must not spin, so it
+    // gets an empty stand-in instead
+    if (town) { const idle = new THREE.Group(); idle.name = 'beacon_idle'; G.add(idle); this.beacon = idle; }
+    else this.beacon = centre;
 
-    [[0.12, 0.08, 1.0, false], [0.17, 0.02, 0.8, true], [0.06, 0.15, 0.9, true],
-     [-0.14, 0.12, 0.85, false], [-0.18, -0.09, 1.0, true], [0.02, -0.16, 0.9, false],
-     [0.15, -0.12, 0.8, true], [-0.06, -0.05, 0.7, false]]
+    // trees ring the town rather than growing through it
+    (town
+      ? [[0.30, 0.06, 0.9, false], [0.24, 0.19, 0.8, true], [0.07, 0.31, 1.0, true],
+         [-0.17, 0.26, 0.85, false], [-0.31, 0.05, 0.95, true], [-0.24, -0.19, 0.8, false],
+         [-0.03, -0.31, 1.0, true], [0.22, -0.22, 0.85, false]]
+      : [[0.12, 0.08, 1.0, false], [0.17, 0.02, 0.8, true], [0.06, 0.15, 0.9, true],
+         [-0.14, 0.12, 0.85, false], [-0.18, -0.09, 1.0, true], [0.02, -0.16, 0.9, false],
+         [0.15, -0.12, 0.8, true], [-0.06, -0.05, 0.7, false]])
       .forEach(([x, z, s, dk]) => {
         const t = tree(x, z, s, dk);
         t.position.y = TOP + 0.016;
@@ -742,19 +861,30 @@ export class BoardView {
     if (!n) return;
     const zRow = BAND / 2 - 0.03;
     if (n >= 5) {
-      const lh = makeLighthouse('lighthouse_' + i);
-      lh.position.set(0, 0.003, zRow);
-      lh.scale.setScalar(theme.chunk);
-      layer.add(lh);
+      // the top upgrade is a tower, one of four so a built-out board has a skyline
+      const tw = towerProtos.length
+        ? (() => { const t = normalise(towerProtos[i % towerProtos.length], 0.105, 0.048); t.name = 'tower_' + i; return t; })()
+        : makeLighthouse('lighthouse_' + i);
+      tw.position.set(0, 0.003, zRow);
+      tw.scale.setScalar(theme.chunk);
+      tw.rotation.y = ((i * 7) % 4) * Math.PI / 2;
+      layer.add(tw);
       return;
     }
-    const spread = TW - 0.032;
-    for (let k = 0; k < n; k++) {
-      const h = makeHouse(`house_${i}_${k}`);
-      const x = n === 1 ? 0 : -spread / 2 + (spread / (n - 1)) * k;
-      h.position.set(x, 0.003, zRow);
-      h.scale.setScalar((n > 2 ? 0.78 : 1) * theme.chunk);
+    // a tile is 0.10 wide but 0.19 deep, so 3-4 houses make a 2x2 block
+    // instead of a cramped single line
+    const SLOTS = {
+      1: [[0, 0.062]],
+      2: [[-0.024, 0.062], [0.024, 0.062]],
+      3: [[-0.024, 0.070], [0.024, 0.070], [0, 0.028]],
+      4: [[-0.024, 0.070], [0.024, 0.070], [-0.024, 0.028], [0.024, 0.028]],
+    }[n] || [[0, zRow]];
+    SLOTS.forEach(([x, z], k) => {
+      const h = makeHouse(`house_${i}_${k}`, i + k);
+      h.position.set(x, 0.003, z);
+      h.scale.setScalar(0.92 * theme.chunk);
+      h.rotation.y = Math.PI;                       // face the street
       layer.add(h);
-    }
+    });
   }
 }

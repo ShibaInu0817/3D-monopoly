@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BoardView, makeToken, makeCharacterToken, loadPieces, makeDie, DIE_UP, THEMES, MATS, TOP } from './board3d.js';
+import { BoardView, makeToken, makeCharacterToken, loadPieces, loadBuildings, makeDie, DIE_UP, THEMES, MATS, TOP, CHARACTERS } from './board3d.js';
 import * as D from './data.js';
 import * as NET from './net-mqtt.js';
 import { PLAYER_COLORS } from './data.js';
@@ -137,7 +137,6 @@ function applyInput(inp) {
     case 'sell':
       E.sell(state, inp.tile); tone([440, 330], 0.09, 'triangle', 0.03);
       refreshBoardVisuals(); syncHud(); return;
-    case 'unstick': return unstick(true);
   }
 }
 
@@ -201,7 +200,8 @@ function buildScene() {
   scene.add(board.group);
 
   tokens = PLAYER_COLORS.slice(0, state.players.length).map((c, i) => {
-    const t = piecesReady ? makeCharacterToken(c.hex, 'token_' + c.name.toLowerCase(), i)
+    const which = (choice.chars && choice.chars[i] != null) ? choice.chars[i] : i;
+    const t = piecesReady ? makeCharacterToken(c.hex, 'token_' + c.name.toLowerCase(), which)
                           : makeToken(c.hex, 'token_' + c.name.toLowerCase());
     t.position.copy(board.tokenSpot(0, i));
     scene.add(t);
@@ -315,7 +315,6 @@ function celebrate() {
   saveArmed = false;
   clearTimeout(botTimer);
   clearTimeout(autoTimer);
-  clearInterval(watchdog);
   mode = 'victory';
   orbit = 0;
 
@@ -387,6 +386,7 @@ function frame(now) {
     tokens.forEach(tk => { if (tk.userData.mixer) tk.userData.mixer.update(dt); });
     updateCamera(dt);
     renderer.render(scene, camera);
+    stallCheck(now);
   } catch (err) {
     // a bad frame (or a lost GL context) must never kill the loop: every
     // animation promise in the turn flow is waiting on it
@@ -570,7 +570,7 @@ function syncHud() {
   $('log').innerHTML = state.log.slice(0, 8).map(l =>
     `<li><i style="background:${PLAYER_COLORS[l.turn].css}"></i>${l.text}</li>`).join('');
 
-  const canRoll = !busy && state.phase === 'roll' && myTurn();
+  const canRoll = !busy && state.phase === 'roll' && myTurn() && $('moment').hidden;
   const dieBtn = $('btnRoll');
   dieBtn.disabled = !canRoll || isBot();
   dieBtn.classList.toggle('ready', canRoll && !isBot());
@@ -915,26 +915,41 @@ async function teleportTo(p, target) {
 }
 
 let turnLock = false;
+let turnGen = 0;                   // bumped by any reset; a stale turn must bail
+
+/** Abandon whatever turn is in flight. Anything awaiting inside runTurn sees a
+ *  changed generation and returns without touching busy or the board again. */
+function cancelTurn() {
+  turnGen++;
+  turnLock = false;
+  busy = false;
+}
 
 async function takeTurn(dice) {
   if (turnLock) return;            // set synchronously: two timers can fire together
   turnLock = true;
-  try { await runTurn(dice); }
+  const mine = turnGen;
+  try { await runTurn(dice, mine); }
   catch (err) { console.error('turn failed', err); }
-  finally { turnLock = false; busy = false; syncHud(); }
+  finally {
+    if (mine === turnGen) { turnLock = false; busy = false; syncHud(); }
+  }
 }
 
-async function runTurn(dice) {
+async function runTurn(dice, mine) {
   if (busy || state.phase !== 'roll') return;
+  const live = () => mine === turnGen;      // false once a reset has happened
   busy = true; syncHud();
   SOUND.roll();
   const p = E.cur(state);
   const r = E.roll(state, dice);
   await throwDice(state.dice);
+  if (!live()) return;
   syncHud();
 
   if (r.teleport !== undefined) {
     await teleportTo(p, r.teleport);
+    if (!live()) return;
   } else if (r.steps > 0) {
     const path = E.pathFor(state, r.steps);
     E.commitMove(state, path[path.length - 1]);
@@ -944,23 +959,32 @@ async function runTurn(dice) {
     const spots = path.map(i => board.tokenSpot(i, p.id));
     const step = (long ? 230 : 330) * pace();
     if (mover.userData.model) await travel(mover, spots, step);
-    else for (const sp of spots) await hop(mover, sp, long ? 0.055 : 0.075, step * 0.55);
+    else for (const sp of spots) {
+      await hop(mover, sp, long ? 0.055 : 0.075, step * 0.55);
+      if (!live()) return;
+    }
+    if (!live()) return;
     clip(mover, 'idle');
     const res = E.resolveLanding(state);
     if (res && res.teleport !== undefined) {
       await drainNotices();
+      if (!live()) return;
       await teleportTo(p, res.teleport);
+      if (!live()) return;
       if (res.thenResolve) {
         E.resolveLanding(state);
         refreshBoardVisuals();
         await drainNotices();          // the new tile can raise its own offer
+        if (!live()) return;
       }
     } else if (res && res.type === 'teleport') {
       await teleportTo(p, res.tile);
+      if (!live()) return;
     }
   }
   refreshBoardVisuals();
   await drainNotices();
+  if (!live()) return;
   busy = false;
   syncHud();
   if (state.phase === 'end') maybeAutoEnd();
@@ -995,51 +1019,61 @@ function clearSave() {
 }
 
 let autoTimer = null;
-let watchdog = null;
 let lastProgress = { at: 0, sig: '' };
 let stallSig = '', stallSince = 0;
 
 /** A turn should never outlast its animations. If the flow is still marked busy
  *  with no popup on screen and nothing has changed for seconds, release it so
  *  the game continues instead of freezing. */
-function startWatchdog() {
-  clearInterval(watchdog);
-  watchdog = setInterval(() => {
-    if (state.phase === 'over') { $('btnUnstick').hidden = true; return; }
-    const sig = state.turn + '/' + state.phase + '/' + state.log.length + '/' + busy;
-    const now = performance.now();
-    // the escape hatch appears only once the automatic recovery has had its go
-    const waitingOnHuman = !$('moment').hidden && !isBot();
-    if (sig !== stallSig) { stallSig = sig; stallSince = now; }
-    $('btnUnstick').hidden = waitingOnHuman || now - stallSince < 9000;
-    if (sig !== lastProgress.sig) { lastProgress = { at: now, sig }; return; }
-    if (now - lastProgress.at < 5000) return;
-    if (!$('moment').hidden) {
-      // a bot never taps its own card: confirm it for them
-      if (isBot()) { $('mOk').click(); lastProgress = { at: now, sig: '' }; return; }
-      return;                                   // a human decision, not a stall
-    }
-    if (state.phase === 'roll' && isBot() && !busy) {
-      console.warn('bot lost its thread — restarting', sig);
-      botTick();
-      lastProgress = { at: now, sig: '' };
-      return;
-    }
-    if (busy) {
-      console.warn('turn wedged — releasing', sig);
-      busy = false;
-      turnLock = false;
-      syncHud();
-      if (state.phase === 'end') endTurn();
-    } else if (state.phase === 'resolve' && state.pending) {
-      // an offer with no popup left: decline it and move on
-      E.decline(state);
-      syncHud();
-    } else if (state.phase === 'end' && isBot()) {
-      endTurn();
-    }
+let stallNext = 0;
+
+/** Runs from the render loop, which races rAF against a timer, so it cannot be
+ *  starved by timer throttling the way a setInterval can. */
+function stallCheck(now) {
+  if (!state || now < stallNext) return;
+  stallNext = now + 500;
+  if (state.phase === 'over') { $('btnUnstick').hidden = true; return; }
+
+  const sig = state.turn + '/' + state.phase + '/' + state.log.length + '/' + busy;
+  // the escape hatch appears only once the automatic recovery has had its go
+  const waitingOnHuman = !$('moment').hidden && !isBot();
+  if (sig !== stallSig) { stallSig = sig; stallSince = now; }
+  $('btnUnstick').hidden = waitingOnHuman || now - stallSince < 7000;
+
+  if (sig !== lastProgress.sig) { lastProgress = { at: now, sig }; return; }
+  if (now - lastProgress.at < 4500) return;
+
+  if (!$('moment').hidden) {
+    // a bot never taps its own card: confirm it for them
+    if (isBot()) { $('mOk').click(); lastProgress = { at: now, sig: '' }; }
+    return;                                     // a human decision, not a stall
+  }
+  if (state.phase === 'roll' && isBot() && !busy) {
+    console.warn('bot lost its thread — restarting', sig);
+    botTick();
     lastProgress = { at: now, sig: '' };
-  }, 1500);
+    return;
+  }
+  if (busy) {
+    console.warn('turn wedged — releasing', sig);
+    cancelTurn();
+    syncHud();
+    if (state.phase === 'end') endTurn();
+  } else if (state.phase === 'resolve' && state.pending) {
+    // an offer with no popup left: decline it and move on
+    E.decline(state);
+    syncHud();
+  } else if (state.phase === 'end' && isBot()) {
+    endTurn();
+  }
+  lastProgress = { at: now, sig: '' };
+}
+
+function startWatchdog() {
+  stallSig = '';
+  stallSince = performance.now();
+  stallNext = 0;
+  lastProgress = { at: performance.now(), sig: '' };
 }
 
 /** Last resort, on screen: the automatic release has already been tried and the
@@ -1048,8 +1082,7 @@ function unstick(fromInput) {
   if (!fromInput) { NET.submit({ type: 'unstick' }); return; }
   clearTimeout(botTimer);
   clearTimeout(autoTimer);
-  busy = false;
-  turnLock = false;
+  cancelTurn();
   if (activeMoment) { const stale = activeMoment; activeMoment = null; momentClose = null; stale(false); }
   $('moment').hidden = true;
   state.notices.length = 0;
@@ -1062,6 +1095,11 @@ function unstick(fromInput) {
   refreshBoardVisuals();
   syncHud();
   drainNotices();
+  // re-arm the stall detector from now, so a board that is still stuck offers
+  // the button again instead of leaving the player with nothing
+  stallSig = ''; stallSince = performance.now();
+  lastProgress = { at: performance.now(), sig: '' };
+  startWatchdog();
   if (isBot()) botTick();
 }
 
@@ -1088,6 +1126,8 @@ function endTurn(fromInput) {
 
 NET.net.onInput = inp => {
   if (inp.type === 'decide') { deliverDecision(inp); return; }
+  // the recovery input cannot wait on !busy — that is the state it clears
+  if (inp.type === 'unstick') { inbox.length = 0; unstick(true); return; }
   inbox.push(inp);
   pump();
 };
@@ -1170,15 +1210,41 @@ function wireLobby() {
   });
 }
 
+/** A player is known by the character they chose, on the board and in the log. */
+function nameFromCast() {
+  if (!choice.chars) return;
+  state.players.forEach((p, i) => {
+    const c = CHARACTERS[choice.chars[i]];
+    if (c) p.name = c.name;
+  });
+}
+
 /* ---------------- boot ---------------- */
 async function startGame(resume) {
   if (started) return;
   started = true;
   const btn = $(resume && !resume.net ? 'btnResume' : 'btnStart');
+  if (resume) Object.assign(choice, resume.choice);
+
+  // a fresh local or hosted game picks its cast first; guests inherit the host's
+  const needsCast = !resume && NET.net.mode !== 'guest';
+
+  if (needsCast) {
+    try {
+      const { pickCharacters } = await import('./select.js');
+      $('menu').hidden = true;
+      choice.chars = await pickCharacters(choice.players, choice.style);
+    } catch (err) {
+      console.warn('character select unavailable', err);
+      choice.chars = null;
+    }
+  }
+
   if (btn) btn.textContent = 'Setting up the table…';
   try { await loadPieces(); piecesReady = true; }
   catch (err) { console.warn('character pieces unavailable, using pawns', err); }
-  if (resume) Object.assign(choice, resume.choice);
+  try { await loadBuildings(); }
+  catch (err) { console.warn('city kit unavailable, using blocks', err); }
   const b = D.setBoard(choice.board);
   if (resume) {
     state = resume.state;
@@ -1189,10 +1255,12 @@ async function startGame(resume) {
       for (let i = 0; i < choice.players; i++) {
         if (!NET.net.seats.some(s => s.seat === i)) state.players[i].bot = true;
       }
+      nameFromCast();
       NET.beginGame(choice, state);
     } else {
       const bots = Math.min(choice.bots, choice.players - 1);
       for (let i = choice.players - bots; i < choice.players; i++) state.players[i].bot = true;
+      nameFromCast();
     }
   }
   document.documentElement.dataset.board = choice.board;

@@ -88,7 +88,7 @@ const ipoh = {
       tilePay: '付 ',
     },
   },
-  centre: 'tower',
+  centre: 'skyline',
   tiles: g => [
     { kind: 'start', name: '开市·饮早茶' },
     prop(g, '南香茶餐室', 0, 60),

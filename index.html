@@ -417,6 +417,96 @@
   #deedClose { padding: 12px; border-radius: var(--r-sm); border: none; background: var(--ink);
     color: var(--paper); font-size: 14px; font-weight: 700; cursor: pointer; }
 
+  /* ---------- character select ---------- */
+  #charSelect { position: fixed; inset: 0; z-index: 34; display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto; gap: 14px; padding: 20px 28px 22px;
+    background:
+      radial-gradient(44% 40% at 50% 54%, color-mix(in srgb, var(--csSeat, #ffce8a) 26%, transparent) 0%, rgba(0,0,0,0) 72%),
+      radial-gradient(130% 100% at 50% 118%, #2a201a 0%, #0d0b0a 58%, #050505 100%);
+    opacity: 0; transition: opacity .3s ease; }
+  #charSelect.on { opacity: 1; }
+  #charSelect[hidden] { display: none; }
+  #csFlash { position: absolute; z-index: 4; inset: 0; background: #fff7e6; opacity: 0; pointer-events: none; }
+
+  .csTop { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .csSeats { display: flex; gap: 7px; flex-wrap: wrap; }
+  .csSeats span { display: flex; align-items: center; gap: 7px; padding: 6px 11px 6px 8px;
+    border-radius: 999px; border: 1.5px solid rgba(255,255,255,0.14);
+    font-size: 12.5px; font-weight: 700; color: rgba(255,255,255,0.46); }
+  .csSeats span i { width: 9px; height: 9px; border-radius: 3px; opacity: 0.5; }
+  .csSeats span[data-done] { color: rgba(255,255,255,0.8); border-color: rgba(255,255,255,0.24); }
+  .csSeats span[data-done] i { opacity: 1; }
+  .csSeats span[data-now] { color: #0d0b0a; background: var(--csSeat, #ffce8a); border-color: var(--csSeat, #ffce8a); }
+  .csSeats span[data-now] i { opacity: 1; box-shadow: 0 0 0 2px rgba(13,11,10,0.25); }
+  .csStep { font-size: 10.5px; font-weight: 800; letter-spacing: 0.2em; white-space: nowrap;
+    text-transform: uppercase; color: rgba(255,255,255,0.42); }
+
+  .csStage { position: relative; min-height: 0; overflow: hidden; }
+  .csGhost { position: absolute; z-index: 1; top: 50%; left: 50%; transform: translate(-50%, -58%);
+    font-size: clamp(180px, 34vh, 330px); font-weight: 800; line-height: 0.8;
+    color: rgba(255,255,255,0.055); letter-spacing: -0.04em; pointer-events: none; user-select: none; }
+  .csViewport { position: absolute; inset: 0; }
+  #csCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .csStatus { position: absolute; bottom: 14px; margin: 0; font-size: 12px; font-weight: 700;
+    color: rgba(255,255,255,0.5); }
+
+  .csArrow { position: absolute; z-index: 3; top: 50%; transform: translateY(-50%);
+    width: 52px; height: 52px; border-radius: 999px; border: 1.5px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.85); font-size: 28px; line-height: 1;
+    cursor: pointer; backdrop-filter: blur(6px); transition: background .18s ease, transform .18s ease; }
+  .csArrow:hover { background: rgba(255,206,138,0.2); border-color: rgba(255,206,138,0.6); color: #fff; }
+  #csPrev { left: 4%; }
+  #csNext { right: 4%; }
+
+  .csStage::after { content: ''; position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; height: 42%;
+    background: linear-gradient(to top, rgba(9,7,6,0.94) 0%, rgba(9,7,6,0.72) 44%, rgba(9,7,6,0) 100%);
+    pointer-events: none; }
+  .csPlate { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 3;
+    display: grid; justify-items: center; gap: 2px; text-align: center; width: min(560px, 94%); }
+  .csPlate h2 { margin: 0; font-size: clamp(38px, 6.6vh, 64px); line-height: 1; font-weight: 800;
+    color: #fff; letter-spacing: 0.02em; text-shadow: 0 10px 44px rgba(0,0,0,0.75); }
+  .csRole { margin: 6px 0 0; font-size: 13px; font-weight: 800; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--csSeat, #ffce8a); }
+  .csLine { margin: 4px 0 0; font-size: 14.5px; font-weight: 600; color: rgba(255,255,255,0.6); }
+  .csTaken { margin: 8px 0 0; font-size: 12.5px; font-weight: 800; color: #ff9b7a; }
+  .csTaken[hidden] { display: none; }
+
+  .csRoster { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px; }
+  .csRoster button { position: relative; display: grid; gap: 3px; justify-items: center;
+    padding: 11px 4px 10px; border-radius: 14px; cursor: pointer;
+    border: 1.5px solid rgba(255,255,255,0.13); background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.66); font-family: inherit;
+    transition: border-color .16s ease, background .16s ease, color .16s ease; }
+  .csRoster button:hover { border-color: rgba(255,255,255,0.34); color: #fff; }
+  .csRoster button span { font-size: 13.5px; font-weight: 700; line-height: 1.1; }
+  .csRoster button em { font-size: 9.5px; font-weight: 700; font-style: normal; line-height: 1.1;
+    opacity: 0.55; text-align: center; }
+  .csRoster button i { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 3px; }
+  .csRoster button[aria-pressed="true"] { border-color: var(--csSeat, #ffce8a);
+    background: color-mix(in srgb, var(--csSeat, #ffce8a) 18%, transparent);
+    color: #fff; box-shadow: 0 0 0 1px var(--csSeat, #ffce8a), 0 8px 26px rgba(0,0,0,0.5); }
+  .csRoster button[data-taken] { opacity: 0.35; }
+
+  .csBtns { display: flex; justify-content: center; gap: 10px; }
+  .csBtns button { min-width: 168px; }
+
+  @media (max-width: 900px) {
+    #charSelect { padding: 14px 14px 16px; gap: 10px; }
+    .csGhost { font-size: clamp(140px, 26vh, 220px); }
+    .csArrow { width: 44px; height: 44px; font-size: 24px; }
+    #csPrev { left: 0; }
+    #csNext { right: 0; }
+    .csPlate h2 { font-size: clamp(30px, 5.4vh, 42px); }
+    .csRole { font-size: 11px; letter-spacing: 0.12em; }
+    .csLine { display: none; }
+    .csRoster { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+    .csRoster button { padding: 8px 3px; border-radius: 11px; }
+    .csRoster button span { font-size: 12.5px; }
+    .csRoster button em { display: none; }
+    .csSeats span { padding: 5px 9px 5px 7px; font-size: 11.5px; }
+    .csBtns button { flex: 1; min-width: 0; min-height: 48px; }
+  }
+
   /* ---------- online lobby ---------- */
   #lobby { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center;
     background: rgba(10,12,16,0.62); backdrop-filter: blur(6px); padding: 20px; }
@@ -673,7 +763,9 @@
     #styles .sbtn { padding: 6px 8px; }
 
     #rollDock { left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+      pointer-events: none; }
+    #rollDock > * { pointer-events: auto; }
     #btnRoll { width: 92px; height: 92px; box-shadow: 0 8px 0 color-mix(in oklab, var(--ink) 62%, transparent); }
     #btnRoll .cube { width: 30px; height: 30px; margin-bottom: 3px; }
     #btnRoll .cube svg { width: 22px; height: 22px; }
@@ -710,7 +802,9 @@
     .pmeta b { font-size: 10px; }
     .pcash { font-size: 10.5px; }
     #logWrap { max-height: 52vh; }
-    #rollDock { left: 0; right: 0; flex-direction: row; align-items: flex-end; justify-content: center; gap: 9px; }
+    #rollDock { left: 0; right: 0; flex-direction: row; align-items: flex-end; justify-content: center; gap: 9px;
+      pointer-events: none; }
+    #rollDock > * { pointer-events: auto; }
     #btnRoll { width: 74px; height: 74px; box-shadow: 0 6px 0 color-mix(in oklab, var(--ink) 62%, transparent); }
     #btnRoll .cube { width: 24px; height: 24px; margin-bottom: 2px; }
     #btnRoll .cube svg { width: 18px; height: 18px; }
@@ -1025,6 +1119,37 @@
       <button id="mNo" hidden>No thanks</button>
     </div>
     <p id="mWait" hidden>Waiting…</p>
+  </div>
+</div>
+
+<div id="charSelect" hidden>
+  <div class="csFlash" id="csFlash"></div>
+
+  <header class="csTop">
+    <div class="csSeats" id="csSeatList"></div>
+    <span class="csStep">选择角色 · <span id="csOf">1 / 4</span></span>
+  </header>
+
+  <div class="csStage">
+    <span class="csGhost" id="csNum">01</span>
+    <div class="csViewport">
+      <canvas id="csCanvas"></canvas>
+      <p class="csStatus" id="csStatus"></p>
+    </div>
+    <button class="csArrow" id="csPrev" aria-label="上一个">‹</button>
+    <button class="csArrow" id="csNext" aria-label="下一个">›</button>
+    <div class="csPlate" id="csCard">
+      <h2 id="csName">阿霞</h2>
+      <p class="csRole" id="csRole">茶室老板娘</p>
+      <p class="csLine" id="csLine">一手端六杯，从不洒</p>
+      <p class="csTaken" id="csTaken" hidden></p>
+    </div>
+  </div>
+
+  <div class="csRoster" id="csRoster"></div>
+  <div class="csBtns">
+    <button class="act" id="csBack">上一位</button>
+    <button class="act primary" id="csConfirm">确定</button>
   </div>
 </div>
 
