@@ -7,6 +7,15 @@ import * as E from './engine.js';
 
 const $ = id => document.getElementById(id);
 const wait = ms => new Promise(r => setTimeout(r, ms));
+
+/** Drop every open bottom sheet and un-press its tab. The sheet keys come from
+ *  the tab row itself, so a new tab needs no second edit here. */
+function closeSheets() {
+  document.querySelectorAll('#tabs .tab').forEach(b => {
+    document.body.classList.remove('sheet-' + b.dataset.sheet);
+    b.setAttribute('aria-pressed', 'false');
+  });
+}
 // rAF pauses in hidden/background frames and does not resume mid-wait, which
 // would freeze a turn. Race it against a timer and take whichever fires first.
 const nextFrame = cb => {
@@ -53,11 +62,13 @@ function wireMenu() {
       if (kind === 'style') document.documentElement.dataset.theme = val;
     });
   });
-  document.querySelectorAll('#tabs .tab').forEach(btn => {
+  // read off the tab row rather than a hardcoded list, so adding a tab is one
+  // change and a hidden tab (the cheat panel) never leaves a stale sheet open
+  document.querySelectorAll('#tabs .tab:not([hidden])').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.sheet;
       const wasOpen = document.body.classList.contains('sheet-' + key);
-      ['road', 'log'].forEach(k => document.body.classList.remove('sheet-' + k));
+      closeSheets();
       if (!wasOpen) document.body.classList.add('sheet-' + key);
       document.querySelectorAll('#tabs .tab').forEach(b =>
         b.setAttribute('aria-pressed', String(!wasOpen && b === btn)));
@@ -137,6 +148,7 @@ function applyInput(inp) {
     case 'sell':
       E.sell(state, inp.tile); tone([440, 330], 0.09, 'triangle', 0.03);
       refreshBoardVisuals(); syncHud(); return;
+    case 'warp': return warpTo(inp.tile);      // cheat panel only
   }
 }
 
@@ -145,9 +157,61 @@ const d6 = () => 1 + Math.floor(Math.random() * 6);
 const isAuthority = () => NET.net.mode !== 'guest';
 const myTurn = () => (state.players[state.turn].bot ? isAuthority() : NET.isMySeat(state.turn));
 
+/* ---------------- cheat panel (?cheat=1) ----------------
+   A test rig, not a game feature: without the flag the panel stays hidden, its
+   tab stays out of the sheet row, and nextDice() falls through to real dice. */
+const CHEAT = new URLSearchParams(location.search).has('cheat');
+const cheat = { dice: null, lock: false };
+
+function mountCheat() {
+  if (!CHEAT || $('cheat').dataset.ready) return;
+  const panel = $('cheat');
+  panel.dataset.ready = '1';
+  panel.hidden = false;
+  const tab = document.querySelector('#tabs .tab[data-sheet="cheat"]');
+  tab.hidden = false;
+  tab.addEventListener('click', () => {
+    const wasOpen = document.body.classList.contains('sheet-cheat');
+    closeSheets();
+    if (!wasOpen) document.body.classList.add('sheet-cheat');
+    tab.setAttribute('aria-pressed', String(!wasOpen));
+  });
+
+  for (const id of ['cheatD1', 'cheatD2']) {
+    $(id).innerHTML = [1, 2, 3, 4, 5, 6].map(n => `<option value="${n}">${n}</option>`).join('');
+  }
+  // named tiles beat memorising indices when you are hunting a specific scenario
+  $('cheatTile').innerHTML = D.TILES
+    .map((t, i) => `<option value="${i}">${String(i).padStart(2, '0')} · ${t.name}</option>`).join('');
+
+  const pick = () => [+$('cheatD1').value, +$('cheatD2').value];
+  $('cheatRoll').addEventListener('click', () => {
+    cheat.dice = pick();
+    requestRoll();
+    if (!cheat.lock) cheat.dice = null;   // requestRoll bails when it is not your turn
+  });
+  $('cheatLock').addEventListener('change', e => {
+    cheat.lock = e.target.checked;
+    cheat.dice = cheat.lock ? pick() : null;
+  });
+  $('cheatWarp').addEventListener('click', () => {
+    if (busy || !myTurn()) return;
+    NET.submit({ type: 'warp', tile: +$('cheatTile').value });
+  });
+}
+
+/** Forced dice ride the ordinary `{type:'roll', dice}` message, so every client
+ *  replays them exactly the way a networked roll already works. */
+function nextDice() {
+  if (!cheat.dice) return [d6(), d6()];
+  const d = cheat.dice.slice();
+  if (!cheat.lock) cheat.dice = null;        // one-shot: arms exactly one roll
+  return d;
+}
+
 function requestRoll() {
   if (busy || state.phase !== 'roll' || !myTurn()) return;
-  NET.submit({ type: 'roll', dice: [d6(), d6()] });
+  NET.submit({ type: 'roll', dice: nextDice() });
 }
 function requestEnd() {
   if (busy || state.phase !== 'end' || !myTurn()) return;
@@ -768,8 +832,7 @@ function showMoment(n) {
   el.className = n.kind;
   $('mWhoName').textContent = p.name;
   $('mWho').querySelector('i').style.background = PLAYER_COLORS[p.id].css;
-  ['road', 'log'].forEach(k => document.body.classList.remove('sheet-' + k));
-  document.querySelectorAll('#tabs .tab').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  closeSheets();
   $('mBadge').textContent = n.card ? n.title
     : isOffer ? T('forSale', 'For sale')
     : n.kind === 'pay' ? T('paymentDue', 'Payment due')
@@ -912,6 +975,21 @@ async function teleportTo(p, target) {
   clip(tk, 'jump', { then: 'idle' });
   await hop(tk, board.tokenSpot(target, p.id), 0.22, 460 * pace());
   clip(tk, 'idle');
+}
+
+/** Cheat-only: drop the acting player on any tile and let it resolve, so a
+ *  scenario can be reached without rolling there. Mirrors the teleport branch
+ *  of runTurn rather than opening a second path through the board. */
+async function warpTo(target) {
+  if (busy || !state || state.phase === 'over') return;
+  busy = true; syncHud();
+  const p = E.cur(state);
+  E.commitMove(state, target, { collectStart: false });   // a debug jump earns no salary
+  await teleportTo(p, target);
+  E.resolveLanding(state);
+  refreshBoardVisuals();
+  await drainNotices();
+  busy = false; syncHud();
 }
 
 let turnLock = false;
@@ -1112,8 +1190,7 @@ function endTurn(fromInput) {
   if (!fromInput) return requestEnd();
   if (state.phase !== 'end' || busy) return;
   E.endTurn(state);
-  $('build').classList.remove('open');
-  $('btnBuild').textContent = 'Build';
+  closeSheets();               // a new turn should start on a clear board
   state.players.forEach(pl => {
     const tk = tokens[pl.id];
     if (!tk || !tk.userData.play) return;
@@ -1279,12 +1356,13 @@ async function startGame(resume) {
   $('buildTitle').textContent = T('buildTitle', 'Build — complete sets only');
   $('deedClose').textContent = T('close', 'Close');
   $('btnEnd').textContent = T('endTurn', 'End turn');
-  $('btnBuild').textContent = T('build', 'Build');
+  $('tabBuild').textContent = T('build', 'Build');
   $('roadTitle').textContent = T('roadAhead', 'Road ahead');
   $('btnRestart').textContent = T('newGame', 'New game');
   $('mNo').textContent = T('no', 'No thanks');
   $('rapidChip').textContent = T('rapid', 'Rapid');
   $('buildEmpty').textContent = b.labels.buildHint;
+  mountCheat();                    // needs D.TILES, so it waits for setBoard
 
   buildScene();
   applyStyle(choice.style);
@@ -1352,11 +1430,6 @@ async function startGame(resume) {
     if (state.phase === 'over') return;      // the victory shot owns the camera
     mode = mode === 'follow' ? 'overview' : 'follow';
     syncHud();
-  });
-  const buildSheet = $('build');
-  $('btnBuild').addEventListener('click', () => {
-    const open = buildSheet.classList.toggle('open');
-    $('btnBuild').textContent = open ? 'Close build' : 'Build';
   });
   addEventListener('keydown', e => {
     if (!$('moment').hidden) return;

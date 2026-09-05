@@ -330,6 +330,21 @@
   #buildList button:disabled { opacity: 0.28; cursor: default; }
   #buildEmpty { font-size: 12.5px; font-weight: 600; color: var(--soft); margin: 8px 0 0; }
 
+  /* ---------- cheat panel (?cheat=1) ---------- */
+  #cheat { bottom: 150px; left: 20px; width: 258px; padding: 12px 15px 14px; }
+  #cheat[hidden] { display: none; }
+  .cheatRow { display: flex; align-items: center; gap: 7px; margin-top: 8px; }
+  .cheatCap { font-size: 10.5px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--soft); width: 34px; flex: none; }
+  #cheat select { flex: 1; min-width: 0; height: 32px; border-radius: 9px; border: var(--edge);
+    background: var(--panel); color: var(--ink); font: 700 12.5px/1 inherit; font-family: inherit;
+    padding: 0 6px; cursor: pointer; }
+  #cheatD1, #cheatD2 { flex: none; width: 46px; text-align: center; }
+  #cheat button.act { flex: none; padding: 8px 12px; font-size: 12px; }
+  .cheatLock { display: flex; align-items: center; gap: 7px; margin-top: 9px;
+    font-size: 12px; font-weight: 700; color: var(--soft); cursor: pointer; }
+  .cheatLock input { width: 15px; height: 15px; accent-color: var(--ink); cursor: pointer; }
+
   /* the roll control, bottom right */
   #rollDock { bottom: 152px; right: 20px; display: flex; align-items: flex-end; gap: 14px; }
   #diceRead { display: grid; gap: 7px; justify-items: center; padding: 12px 14px; }
@@ -362,7 +377,6 @@
   button.act:hover:not(:disabled) { transform: translateY(-2px); }
   button.act:disabled { opacity: 0.32; cursor: default; }
   button.act.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-  #btnBuild { display: none; }
 
   /* ---------- road ahead ---------- */
   #road { bottom: 24px; left: 20px; right: 20px; display: grid; gap: 6px; }
@@ -683,7 +697,6 @@
   }
 
 
-  @media (max-width: 1180px) and (min-width: 721px) and (min-height: 521px) { #logWrap, #build { display: none; } }
 
   /* below ~1000px the centred style bar would collide with the turn card:
      dock it under the turn card on the left instead */
@@ -721,6 +734,30 @@
   .tab[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
   .tab[aria-pressed="true"] b { color: var(--paper); opacity: 0.7; }
 
+  /* Below 1181px the pinned right-hand column has nowhere to sit, so news and
+     build slide up from the bottom on demand instead of vanishing. The road
+     strip still fits along the bottom edge here; only phones collapse it too. */
+  @media (max-width: 1180px), (max-height: 520px) {
+    #tabs { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap;
+      left: auto; top: 20px; right: 20px; }
+    #tabs .tab[data-sheet="road"] { display: none; }
+    #logWrap, #build, #cheat {
+      left: 12px; right: 12px; width: auto; top: auto; bottom: 0;
+      transform: translateY(calc(100% + 24px));
+      transition: transform .34s cubic-bezier(.2,1.1,.3,1);
+      background: var(--panel); backdrop-filter: blur(10px); border: var(--edge);
+      border-radius: var(--r) var(--r) 0 0; box-shadow: var(--lift);
+      padding: 14px 14px calc(env(safe-area-inset-bottom, 0px) + 16px);
+      max-height: 46vh; overflow-y: auto; z-index: 8; }
+    body.sheet-log #logWrap, body.sheet-build #build, body.sheet-cheat #cheat { transform: none; }
+    /* the sheet does the scrolling now; a second inner scroller traps the list */
+    #buildList { max-height: none; overflow: visible; }
+  }
+  /* 721–860px the action bar owns the top-right corner, so drop the tabs below it */
+  @media (max-width: 860px) and (min-width: 721px) and (min-height: 521px) {
+    #tabs { top: 108px; }            /* the action bar above it ends at 98px */
+  }
+
   /* ---------- phones (narrow OR short: landscape phones are short-and-wide) ---------- */
   @media (max-width: 720px), (max-height: 520px) {
     .hud { --gut: 12px; }
@@ -734,6 +771,7 @@
     /* one chip row under the turn card; the panels themselves slide up on demand */
     #tabs { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap;
       top: calc(env(safe-area-inset-top, 0px) + 84px); left: auto; right: 12px; }
+    #tabs .tab[data-sheet="road"] { display: flex; }   /* no room to pin it here */
     .tab { min-height: 40px; padding: 7px 11px; font-size: 11.5px; }
 
     /* every player's holdings stay on screen; only road + news collapse */
@@ -754,6 +792,7 @@
       padding: 14px 14px calc(env(safe-area-inset-bottom, 0px) + 16px); z-index: 8; }
     body.sheet-road #road, body.sheet-log #logWrap { transform: none; }
     #logWrap { max-height: 46vh; overflow-y: auto; }
+    #road { max-height: 46vh; }
     #road .roadHead { margin-bottom: 8px; }
     .pcard.active { transform: none; outline: 2px solid var(--ink); outline-offset: -2px; }
     .swatch { width: 10px; height: 10px; border-radius: 3px; }
@@ -778,7 +817,7 @@
 
     #actions { left: 12px; right: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
       transform: none; display: grid; gap: 7px; padding: 8px; }
-    #btnEnd, #btnBuild, #build { display: none !important; }
+    #btnEnd { display: none !important; }
     #roadList { grid-auto-columns: 84px; }
     button.act { padding: 11px 14px; font-size: 13px; }
     .hint { display: none; }
@@ -1030,6 +1069,8 @@
 <div class="hud" id="tabs">
   <button class="tab" data-sheet="road" aria-pressed="false"><span id="tabRoad">Road</span></button>
   <button class="tab" data-sheet="log" aria-pressed="false"><span id="tabLog">News</span></button>
+  <button class="tab" data-sheet="build" aria-pressed="false"><span id="tabBuild">Build</span></button>
+  <button class="tab" data-sheet="cheat" aria-pressed="false" hidden><span>Cheat</span></button>
 </div>
 
 <div class="hud" id="players"></div>
@@ -1059,6 +1100,23 @@
   <div class="lbl" id="buildTitle">Build — complete sets only</div>
   <p id="buildEmpty"></p>
   <ul id="buildList"></ul>
+</div>
+
+<!-- test rig, only mounted when the page is loaded with ?cheat=1 -->
+<div class="hud panel" id="cheat" hidden>
+  <div class="lbl">Cheat — testing only</div>
+  <div class="cheatRow">
+    <span class="cheatCap">Dice</span>
+    <select id="cheatD1"></select>
+    <select id="cheatD2"></select>
+    <button class="act" id="cheatRoll">Roll these</button>
+  </div>
+  <label class="cheatLock"><input type="checkbox" id="cheatLock"> Lock every roll</label>
+  <div class="cheatRow">
+    <span class="cheatCap">Tile</span>
+    <select id="cheatTile"></select>
+    <button class="act" id="cheatWarp">Go</button>
+  </div>
 </div>
 
 <div class="hud" id="rollDock">
@@ -1100,7 +1158,6 @@
 <div class="hud panel" id="actions">
   <button class="act primary" id="btnEnd">End turn</button>
   <button class="act" id="btnCam"><span id="camLabel">Camera:</span> <span id="camMode">Follow</span></button>
-  <button class="act" id="btnBuild">Build</button>
 </div>
 
 <div id="moment" hidden>
