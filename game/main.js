@@ -142,12 +142,8 @@ function applyInput(inp) {
   switch (inp.type) {
     case 'roll': return takeTurn(inp.dice);
     case 'end': return endTurn(true);
-    case 'build':
-      E.build(state, inp.tile); tone([660, 880], 0.09, 'triangle', 0.035);
-      refreshBoardVisuals(); syncHud(); return;
-    case 'sell':
-      E.sell(state, inp.tile); tone([440, 330], 0.09, 'triangle', 0.03);
-      refreshBoardVisuals(); syncHud(); return;
+    case 'build': return doBuild(inp.tile);
+    case 'sell': return doSell(inp.tile);
     case 'warp': return warpTo(inp.tile);      // cheat panel only
   }
 }
@@ -223,6 +219,7 @@ function requestDecide(yes) { NET.submit({ type: 'decide', yes }); }
 /* ---------------- scene (built once the board is chosen) ---------------- */
 let renderer, scene, camera, hemi, key, fill, board, state, tokens, dice;
 let mode = 'follow', orbit = 0, userDrag = null, busy = false, styleName = 'clay';
+let buildFocus = null;             // tile index while a build cinematic is running
 let zoom = 1, tapMoved = false;
 let lastCash = [];
 let started = false;
@@ -411,6 +408,17 @@ function desiredCamera() {
     const centre = t.y + 0.05;
     camPos.set(t.x + Math.sin(orbit) * r, 0.2 * fitK, t.z + Math.cos(orbit) * r);
     camTarget.set(t.x, centre - 0.06 * r, t.z);
+    return;
+  }
+  // a build announcement owns the camera while it runs, whatever the mode is
+  if (buildFocus !== null && board) {
+    const c = board.tileCentre(buildFocus);
+    const out = new THREE.Vector3(c.x, 0, c.z);
+    if (out.length() < 0.001) out.set(1, 0, 1);
+    out.normalize();
+    const fz = fitK * zoom;
+    camPos.set(c.x + out.x * 0.46 * fz, 0.3 * fz, c.z + out.z * 0.46 * fz);
+    camTarget.set(c.x, 0.03, c.z);
     return;
   }
   if (mode === 'overview') {
@@ -821,6 +829,181 @@ function botTick() {
   }, delay);
 }
 
+/* ---------------- build & sell: confirm, then announce ---------------- */
+
+/** Local gate before a build or sell reaches the network. Only the acting
+ *  player sees it; everyone sees the announcement that follows. */
+function askConfirm(i, selling) {
+  const t = D.TILES[i], p = E.cur(state);
+  const from = state.houses[i], to = selling ? from - 1 : from + 1;
+  const swing = selling ? -Math.round(t.houseCost / 2) : t.houseCost;   // +cost / −refund
+  const label = n => (n === 0 ? T('empty', 'Empty') : HOUSE_LABEL(n));
+  const el = $('confirm');
+  el.hidden = false;
+  el.className = selling ? 'sell' : '';
+  $('cWho').querySelector('i').style.background = PLAYER_COLORS[p.id].css;
+  $('cWhoName').textContent = p.name;
+  $('cBadge').textContent = selling ? T('sell', 'Sell') : T('build', 'Build');
+  $('cSwatch').style.background = '#' + D.GROUPS[t.group].color.toString(16).padStart(6, '0');
+  $('cSwatch').textContent = D.GROUPS[t.group].name;
+  $('cTile').textContent = t.name;
+  $('cFrom').textContent = label(from);
+  $('cTo').textContent = label(to);
+  $('cAmount').textContent = (selling ? '+' : '\u2212') + money(Math.abs(swing));
+  const after = money(p.cash - swing);
+  $('cAfter').textContent = Tn('cashAfter', 'Cash after: ' + after, after);
+  $('cOk').textContent = selling
+    ? Tn('sellFor', 'Sell for ' + money(-swing), money(-swing))
+    : Tn('buildFor', 'Build for ' + money(swing), money(swing));
+  $('cNo').textContent = T('cancel', 'Cancel');
+  nextFrame(() => el.classList.add('on'));
+
+  return new Promise(res => {
+    const close = ok => {
+      $('cOk').removeEventListener('click', yes);
+      $('cNo').removeEventListener('click', no);
+      removeEventListener('keydown', onKey);
+      el.classList.remove('on');
+      setTimeout(() => { el.hidden = true; el.className = ''; }, 300);
+      tone(ok ? [523, 784] : [440, 330], 0.08, 'triangle', 0.03);
+      res(ok);
+    };
+    const yes = () => close(true);
+    const no = () => close(false);
+    const onKey = ev => {
+      if (ev.code === 'Enter' || ev.code === 'Space') { ev.preventDefault(); yes(); }
+      if (ev.code === 'Escape') { ev.preventDefault(); no(); }
+    };
+    $('cOk').addEventListener('click', yes);
+    $('cNo').addEventListener('click', no);
+    addEventListener('keydown', onKey);
+  });
+}
+
+/** The newest piece on a tile: the one just built, or the one about to go. */
+function newestBuilding(i) {
+  const layer = board && board.buildings[i];
+  return layer && layer.children.length ? layer.children[layer.children.length - 1] : null;
+}
+
+function showBanner(i, p, n, selling, hotel) {
+  const t = D.TILES[i], el = $('announce');
+  el.hidden = false;
+  el.className = (selling ? 'sell' : '') + (hotel ? ' hotel' : '');
+  $('aBar').style.background = '#' + D.GROUPS[t.group].color.toString(16).padStart(6, '0');
+  $('aWho').querySelector('i').style.background = PLAYER_COLORS[p.id].css;
+  $('aWhoName').textContent = p.name;
+  $('aBig').textContent = n === 0 ? T('empty', 'Empty') : HOUSE_LABEL(n);
+  $('aTile').textContent = t.name;
+  $('aBadge').textContent = selling ? T('sold', 'Sold')
+    : hotel ? T('opened', 'Opened') : T('built', 'Built');
+  nextFrame(() => el.classList.add('on'));
+}
+
+function hideBanner() {
+  const el = $('announce');
+  if (el.hidden) return;
+  el.classList.remove('on');
+  el.classList.add('out');
+  setTimeout(() => { el.hidden = true; el.className = ''; }, 340);
+}
+
+/** A ring of dust thrown out from the tile as something lands or leaves. */
+function shockRing(i, hex, big) {
+  const c = board.tileCentre(i);
+  const geo = new THREE.RingGeometry(0.018, 0.028, 44);
+  const mat = new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.9,
+    side: THREE.DoubleSide, depthWrite: false });
+  const ring = new THREE.Mesh(geo, mat);
+  ring.name = 'shock_' + i;
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(c.x, c.y + 0.012, c.z);
+  scene.add(ring);
+  tween((big ? 780 : 560) * pace(), t => {
+    const k = 1 + t * (big ? 8 : 5.2);
+    ring.scale.set(k, k, k);
+    mat.opacity = 0.9 * (1 - t);
+  }, easeOut).then(() => { scene.remove(ring); geo.dispose(); mat.dispose(); });
+}
+
+/** Drops the new building in from above and lets it squash on landing. */
+async function dropIn(node, i, hex, big) {
+  const y = node.position.y, s = node.scale.x;
+  const lift = big ? 0.32 : 0.19;
+  node.position.y = y + lift;
+  node.scale.set(s * 0.74, s * 1.2, s * 0.74);           // stretched on the way down
+  await tween(360 * pace(), t => { node.position.y = y + lift * (1 - t * t); });
+  tone(big ? [180, 130, 90] : [320, 210], big ? 0.24 : 0.13, 'square', 0.05);
+  shockRing(i, hex, big);
+  await tween(440 * pace(), t => {
+    const sq = Math.sin(easeOut(t) * Math.PI) * (big ? 0.3 : 0.2);
+    node.position.y = y;
+    node.scale.set(s * (1 + sq), s * (1 - sq * 0.75), s * (1 + sq));
+  });
+  node.position.y = y;
+  node.scale.setScalar(s);
+}
+
+/** The quieter opposite: the building shrinks back into the ground. */
+async function sinkOut(node, i, hex) {
+  const y = node.position.y, s = node.scale.x;
+  tone([260, 180, 120], 0.2, 'sawtooth', 0.035);
+  shockRing(i, hex, false);
+  await tween(460 * pace(), t => {
+    const e = easeOut(t);
+    node.position.y = y - 0.05 * e;
+    node.scale.set(s * (1 - e * 0.85), s * (1 - e), s * (1 - e * 0.85));
+  });
+}
+
+/** Runs on every client, because the build input reaches every client. Holds
+ *  the turn flow for its length so nobody can miss it. */
+async function announceBuilding(i, selling) {
+  const p = E.cur(state);
+  const n = state.houses[i];
+  const hotel = !selling && n === 5;
+  const hex = D.GROUPS[D.TILES[i].group].color;
+  busy = true;
+  buildFocus = i;                       // the camera swings in on its own lerp
+  showBanner(i, p, n, selling, hotel);
+  syncHud();
+  try {
+    await wait(340 * pace());           // let the camera get there first
+    if (selling) {
+      const doomed = newestBuilding(i);           // the layer still holds the old count
+      if (doomed) await sinkOut(doomed, i, hex);
+      refreshBoardVisuals();
+    } else {
+      refreshBoardVisuals();                      // rebuilds the layer at the new count
+      const fresh = newestBuilding(i);
+      if (fresh) await dropIn(fresh, i, hex, hotel);
+    }
+    await wait((hotel ? 620 : 380) * pace());     // a beat to read the banner
+  } catch (err) {
+    console.warn('build announcement failed', err);
+    refreshBoardVisuals();
+  } finally {
+    buildFocus = null;
+    hideBanner();
+    busy = false;
+    syncHud();
+  }
+}
+
+async function doBuild(i) {
+  const before = state.houses[i];
+  E.build(state, i);
+  if (state.houses[i] === before) return;    // the rule refused it; nothing happened
+  await announceBuilding(i, false);
+}
+
+async function doSell(i) {
+  const before = state.houses[i];
+  E.sell(state, i);
+  if (state.houses[i] === before) return;
+  await announceBuilding(i, true);
+}
+
 function showMoment(n) {
   const gen = ++momentGen;
   // a superseded popup must not leave its awaiter hanging forever
@@ -1113,8 +1296,9 @@ function stallCheck(now) {
   if (state.phase === 'over') { $('btnUnstick').hidden = true; return; }
 
   const sig = state.turn + '/' + state.phase + '/' + state.log.length + '/' + busy;
-  // the escape hatch appears only once the automatic recovery has had its go
-  const waitingOnHuman = !$('moment').hidden && !isBot();
+  // the escape hatch appears only once the automatic recovery has had its go.
+  // an open confirm dialog is a decision, not a stall, so it counts as waiting.
+  const waitingOnHuman = (!$('moment').hidden && !isBot()) || !$('confirm').hidden;
   if (sig !== stallSig) { stallSig = sig; stallSince = now; }
   $('btnUnstick').hidden = waitingOnHuman || now - stallSince < 7000;
 
@@ -1392,12 +1576,17 @@ async function startGame(resume) {
     const b2 = e.target.closest('.sbtn');
     if (b2) applyStyle(b2.dataset.style);
   });
-  $('buildList').addEventListener('click', e => {
+  $('buildList').addEventListener('click', async e => {
     const btn = e.target.closest('button');
-    if (!btn || busy) return;
-    if (!myTurn()) return;
-    if (btn.dataset.build) NET.submit({ type: 'build', tile: +btn.dataset.build });
-    if (btn.dataset.sell) NET.submit({ type: 'sell', tile: +btn.dataset.sell });
+    if (!btn || busy || !myTurn()) return;
+    if (!$('confirm').hidden) return;                 // one dialog at a time
+    const selling = !!btn.dataset.sell;
+    const i = +(btn.dataset.build ?? btn.dataset.sell);
+    if (!Number.isFinite(i)) return;
+    if (!await askConfirm(i, selling)) return;
+    // the board can move on while the dialog is open, so re-check before sending
+    if (busy || !myTurn()) return;
+    NET.submit({ type: selling ? 'sell' : 'build', tile: i });
   });
   $('roadList').addEventListener('click', e => {
     const b = e.target.closest('.rtile');
@@ -1432,7 +1621,7 @@ async function startGame(resume) {
     syncHud();
   });
   addEventListener('keydown', e => {
-    if (!$('moment').hidden) return;
+    if (!$('moment').hidden || !$('confirm').hidden) return;
     if (e.code === 'Space') {
       e.preventDefault();
       if (state.phase === 'roll') requestRoll();

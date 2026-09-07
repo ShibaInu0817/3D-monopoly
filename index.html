@@ -635,6 +635,109 @@
   @keyframes fly { 0% { opacity: 0; transform: translate(0,0) scale(0.4) }
     18% { opacity: 1 } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.1) rotate(240deg) } }
 
+  /* ---------- build / sell confirm ---------- */
+  #confirm { position: fixed; inset: 0; z-index: 32; display: grid; place-items: center; pointer-events: none; }
+  #confirm[hidden] { display: none; }
+  #confirm .veil { position: absolute; inset: 0; background: rgba(10,12,16,0); transition: background .3s; }
+  #confirm.on { pointer-events: auto; }
+  #confirm.on .veil { background: rgba(10,12,16,0.5); }
+  #cCard { position: relative; width: 392px; padding: 34px 30px 26px; text-align: center;
+    background: var(--panel); border: var(--edge); border-radius: 26px; box-shadow: 0 30px 70px rgba(8,12,16,0.4);
+    transform: scale(0.74) rotate(-3deg); opacity: 0;
+    transition: transform .4s cubic-bezier(.18,1.5,.4,1), opacity .2s; }
+  #confirm.on #cCard { transform: none; opacity: 1; }
+  #cWho { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center;
+    gap: 8px; padding: 7px 14px; border-radius: 999px; background: var(--ink); color: var(--paper);
+    font-size: 12px; font-weight: 700; white-space: nowrap; }
+  #cWho i { width: 10px; height: 10px; border-radius: 50%; }
+  #cBadge { display: inline-block; padding: 6px 14px; border-radius: 999px; font-size: 11px; font-weight: 800;
+    letter-spacing: 0.16em; text-transform: uppercase; color: #fff; background: var(--good); }
+  #confirm.sell #cBadge { background: var(--warn); }
+  #cSwatch { display: block; width: fit-content; margin: 13px auto 0; padding: 5px 14px; border-radius: 8px;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+  #cTile { margin: 11px 0 0; font-size: 21px; font-weight: 800; }
+  #cStep { display: flex; align-items: center; justify-content: center; gap: 11px; margin-top: 9px;
+    font-size: 13.5px; font-weight: 700; color: var(--soft); }
+  #cStep b { padding: 5px 11px; border-radius: 9px; border: var(--edge); background: var(--paper); color: var(--ink); }
+  #cStep b:last-of-type { border-color: var(--good); color: var(--good); }
+  #confirm.sell #cStep b:last-of-type { border-color: var(--warn); color: var(--warn); }
+  #cStep i { font-style: normal; font-size: 17px; opacity: 0.5; }
+  #cAmount { font-size: 62px; font-weight: 800; line-height: 1; margin: 12px 0 2px;
+    font-variant-numeric: tabular-nums; color: var(--bad); }
+  #confirm.sell #cAmount { color: var(--good); }
+  #cAfter { font-size: 13px; font-weight: 600; color: var(--soft); margin: 4px 0 20px; }
+  #cOk, #cNo { width: 100%; padding: 15px; font-size: 15.5px; font-weight: 800; border-radius: 16px; border: none;
+    cursor: pointer; transition: transform .14s cubic-bezier(.2,1.6,.4,1); }
+  #cOk { color: #fff; background: var(--good); }
+  #confirm.sell #cOk { background: var(--warn); }
+  #cOk:disabled { opacity: 0.45; cursor: default; }
+  #cOk:hover:not(:disabled), #cNo:hover { transform: translateY(-2px); }
+  #cNo { background: transparent; border: var(--edge); color: var(--soft); padding: 12px; font-size: 14px; }
+
+  /* ---------- build / sell announcement (fires on every device) ---------- */
+  #announce { position: fixed; top: 0; left: 0; right: 0; z-index: 15;
+    display: grid; justify-items: center; padding-top: calc(env(safe-area-inset-top, 0px) + 74px);
+    pointer-events: none; }
+  #announce[hidden] { display: none; }
+  #aCard { position: relative; display: flex; align-items: center; gap: 18px;
+    padding: 15px 26px 15px 0; border-radius: 20px; overflow: hidden;
+    background: color-mix(in oklab, var(--panel) 94%, transparent); border: var(--edge);
+    box-shadow: 0 26px 60px rgba(8,12,16,0.4); backdrop-filter: blur(10px);
+    opacity: 0; transform: translateY(-26px) scale(0.92); }
+  #announce.on #aCard { animation: annIn .52s cubic-bezier(.16,1.5,.35,1) both; }
+  #announce.out #aCard { animation: annOut .34s ease forwards; }
+  @keyframes annIn {
+    0%   { opacity: 0; transform: translateY(-30px) scale(.88); }
+    62%  { opacity: 1; transform: translateY(4px) scale(1.03); }
+    100% { opacity: 1; transform: none; }
+  }
+  @keyframes annOut { to { opacity: 0; transform: translateY(-18px) scale(.96); } }
+  @keyframes annUp {
+    0%   { opacity: 0; transform: translateY(30px) scale(.88); }
+    62%  { opacity: 1; transform: translateY(-4px) scale(1.03); }
+    100% { opacity: 1; transform: none; }
+  }
+  @keyframes annDown { to { opacity: 0; transform: translateY(18px) scale(.96); } }
+  #aBar { width: 13px; align-self: stretch; flex: none; }
+  .aBody { display: grid; justify-items: start; gap: 1px; padding: 2px 0 2px 8px; }
+  #aWho { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 800;
+    letter-spacing: 0.04em; color: var(--soft); }
+  #aWho i { width: 9px; height: 9px; border-radius: 50%; }
+  #aBig { font-size: 34px; font-weight: 800; line-height: 1.05; color: var(--ink); white-space: nowrap; }
+  #aTile { margin: 1px 0 0; font-size: 13.5px; font-weight: 700; color: var(--soft); white-space: nowrap; }
+  #aBadge { flex: none; padding: 8px 15px; border-radius: 999px; font-size: 11px; font-weight: 800;
+    letter-spacing: 0.16em; text-transform: uppercase; color: #fff; background: var(--good); }
+  #announce.sell #aBadge { background: var(--warn); }
+  #announce.sell #aBig { color: var(--soft); }
+  /* the hotel is the top of the ladder: it gets the gold treatment */
+  #announce.hotel #aCard { border-color: var(--warn);
+    box-shadow: 0 0 0 2px var(--warn), 0 30px 70px rgba(8,12,16,0.46); }
+  #announce.hotel #aBig { font-size: 42px; color: var(--warn); }
+  #announce.hotel #aBadge { background: var(--warn); }
+  #announce.hotel.on #aCard { animation: annIn .52s cubic-bezier(.16,1.5,.35,1) both, annGlow 1.1s ease .5s 1; }
+  @keyframes annGlow { 0%,100% { filter: none } 50% { filter: brightness(1.14) } }
+
+  @media (max-width: 720px), (max-height: 520px) {
+    /* the top edge is fully spoken for here (turn card, tabs, players), so the
+       banner rises out of the clear board space instead of cutting across them */
+    #announce { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 190px);
+      padding-top: 0; }
+    #announce.on #aCard { animation: annUp .52s cubic-bezier(.16,1.5,.35,1) both; }
+    #announce.hotel.on #aCard { animation: annUp .52s cubic-bezier(.16,1.5,.35,1) both,
+      annGlow 1.1s ease .5s 1; }
+    #announce.out #aCard { animation: annDown .34s ease forwards; }
+    #aCard { gap: 12px; padding-right: 15px; border-radius: 15px; max-width: calc(100vw - 20px); }
+    #aBig { font-size: 24px; }
+    #announce.hotel #aBig { font-size: 28px; }
+    #aTile { font-size: 12px; }
+    #aBadge { padding: 6px 10px; font-size: 9.5px; letter-spacing: 0.1em; }
+    #aBar { width: 9px; }
+    #cCard { width: min(392px, calc(100vw - 26px)); padding: 28px 20px 20px; }
+    #cAmount { font-size: 48px; }
+    #cTile { font-size: 18px; }
+  }
+
   #over { position: fixed; inset: 0; z-index: 14; display: grid; place-items: end center;
     padding: 0 20px calc(env(safe-area-inset-bottom, 0px) + 34px);
     background: linear-gradient(to top, color-mix(in oklab, var(--paper) 88%, transparent) 0%,
@@ -1207,6 +1310,37 @@
   <div class="csBtns">
     <button class="act" id="csBack">上一位</button>
     <button class="act primary" id="csConfirm">确定</button>
+  </div>
+</div>
+
+<!-- local confirm before a build or sell reaches the network -->
+<div id="confirm" hidden>
+  <div class="veil"></div>
+  <div id="cCard">
+    <div id="cWho"><i></i><span id="cWhoName"></span></div>
+    <span id="cBadge">Build</span>
+    <span id="cSwatch"></span>
+    <p id="cTile"></p>
+    <div id="cStep"><b id="cFrom"></b><i>&rarr;</i><b id="cTo"></b></div>
+    <div id="cAmount"></div>
+    <p id="cAfter"></p>
+    <div class="mBtns">
+      <button id="cOk"></button>
+      <button id="cNo"></button>
+    </div>
+  </div>
+</div>
+
+<!-- the build/sell announcement every player sees, on every device -->
+<div id="announce" hidden>
+  <div id="aCard">
+    <span id="aBar"></span>
+    <div class="aBody">
+      <div id="aWho"><i></i><span id="aWhoName"></span></div>
+      <div id="aBig"></div>
+      <p id="aTile"></p>
+    </div>
+    <span id="aBadge"></span>
   </div>
 </div>
 
