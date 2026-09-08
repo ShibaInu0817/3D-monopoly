@@ -261,7 +261,7 @@ function buildScene() {
   scene.add(board.group);
 
   tokens = PLAYER_COLORS.slice(0, state.players.length).map((c, i) => {
-    const which = (choice.chars && choice.chars[i] != null) ? choice.chars[i] : i;
+    const which = (choice.chars && choice.chars[i] >= 0) ? choice.chars[i] : i;
     const t = piecesReady ? makeCharacterToken(c.hex, 'token_' + c.name.toLowerCase(), which)
                           : makeToken(c.hex, 'token_' + c.name.toLowerCase());
     t.position.copy(board.tokenSpot(0, i));
@@ -1396,11 +1396,18 @@ NET.net.onStatus = t => { $('lobbyStatus').textContent = t; };
 NET.net.onLobby = seats => renderSeats(seats);
 NET.net.onBegin = msg => {
   $('lobby').hidden = true;
+  closeCast();
   startGame({ choice: msg.choice, state: msg.state, net: true });
 };
 
+// a guest is pulled into the select by the host, not by pressing anything
+NET.net.onCast = msg => enterCast(msg);
+// the host records claims and republishes the board
+NET.net.onPick = (seat, char) => hostTakePick(seat, char);
+
 function renderSeats(seats) {
-  const total = choice.players;
+  // the host owns the seat count; a guest's own menu says nothing about the room
+  const total = NET.net.players || choice.players;
   const rows = [];
   for (let i = 0; i < total; i++) {
     const s = seats.find(x => x.seat === i);
@@ -1462,13 +1469,121 @@ function wireLobby() {
   $('btnLobbyStart').addEventListener('click', () => {
     if (NET.net.mode !== 'host') return;
     $('lobby').hidden = true;
-    startGame();
+    hostOpenCast();
   });
   $('btnLobbyLeave').addEventListener('click', () => {
     NET.leave();
     $('lobby').hidden = true;
     $('btnHost').textContent = 'Create room';
   });
+}
+
+/* ---------------- character select ----------------
+   Networked, every player at once. The host owns the board: it hands out the
+   claims, runs the clock, and decides when the cast is closed. Guests only ever
+   ask. Bots are deliberately not in it — see hostCloseCast. */
+
+const CAST_MS = 30000;
+let castMod = null;            // the loaded select.js, kept for castUpdate/castClose
+let castOpen = false;
+let castChars = null;          // host's authoritative board
+let castTimer = null;
+let castDeadline = 0;
+
+/** Seats with a person behind them. Off the network that is everyone who is not
+ *  a bot; in a room it is whoever actually claimed a seat. */
+function humanSeats() {
+  if (NET.net.mode === 'off') {
+    const bots = Math.min(choice.bots, choice.players - 1);
+    return Array.from({ length: choice.players - bots }, (_, i) => i);
+  }
+  return NET.net.seats.map(s => s.seat).filter(i => i < castTotal()).sort((a, b) => a - b);
+}
+const castTotal = () => NET.net.players || choice.players;
+const botSeats = () => {
+  const people = new Set(humanSeats());
+  return Array.from({ length: castTotal() }, (_, i) => i).filter(i => !people.has(i));
+};
+
+/** Host: open the select on every device, including its own. */
+async function hostOpenCast() {
+  castChars = new Array(castTotal()).fill(-1);
+  castDeadline = Date.now() + CAST_MS;      // set before publishing: a fast guest
+  NET.pushCast(castChars, castDeadline);    // can claim before we finish opening
+  clearTimeout(castTimer);
+  castTimer = setTimeout(hostCloseCast, CAST_MS + 250);
+  await enterCast({ chars: castChars, endsAt: castDeadline });
+}
+
+/** Host: someone claimed a character. First claim on it wins; a seat may change
+ *  its mind only while it still holds nothing. */
+function hostTakePick(seat, char) {
+  if (!castChars || NET.net.mode === 'guest') return;
+  if (!(char >= 0) || char >= CHARACTERS.length) return;
+  if (castChars[seat] >= 0) return;                  // already locked in
+  if (castChars.includes(char)) {                     // lost the race
+    NET.pushCast(castChars, castDeadline);
+    // the host sees its own board only through this call, so it has to happen
+    // on the losing path too or its screen stays locked on a character it lost
+    if (castMod) castMod.castUpdate(castChars, castDeadline);
+    return;
+  }
+  castChars[seat] = char;
+  NET.pushCast(castChars, castDeadline);
+  if (castMod) castMod.castUpdate(castChars, castDeadline);
+  // everyone who is playing has chosen: no reason to sit out the rest of the clock
+  if (humanSeats().every(i => castChars[i] >= 0)) hostCloseCast();
+}
+
+/** Host: the clock ran out or everyone is done. People draw from the untouched
+ *  roster first, then the bots take what is left. */
+function hostCloseCast() {
+  const board = castChars;
+  if (!board) return;              // already closed, or never opened
+  castChars = null;                // idempotent: the timer and the last pick race
+  clearTimeout(castTimer);
+  if (castMod) {
+    castMod.fillRandom(board, humanSeats());     // a player who ran the clock out
+    castMod.fillRandom(board, botSeats());       // computers last, always
+  }
+  choice.chars = board;
+  // the host never receives its own `begin`, so nothing else would take the
+  // select down on this device — it would sit on top of the board
+  closeCast();
+  startGame();
+}
+
+/** Every client: open the select for this device's own seat. */
+async function enterCast(msg) {
+  if (castOpen) { if (castMod) castMod.castUpdate(msg.chars, msg.endsAt); return; }
+  castOpen = true;
+  castDeadline = msg.endsAt || Date.now() + CAST_MS;
+  $('menu').hidden = true;
+  $('lobby').hidden = true;
+  try {
+    castMod = await import('./select.js');
+  } catch (err) {
+    console.warn('character select unavailable', err);
+    castMod = null;
+    castOpen = false;
+    clearTimeout(castTimer);
+    if (NET.net.mode === 'host') { castChars = null; choice.chars = null; startGame(); }
+    return;
+  }
+  castMod.pickInRoom({
+    seat: NET.net.seat,
+    total: castTotal(),
+    look: choice.style,
+    onPick: char => NET.sendPick(char),
+  });
+  castMod.castUpdate(msg.chars, castDeadline);
+}
+
+/** Every client: the game is starting, so the screen goes away. */
+function closeCast() {
+  castOpen = false;
+  clearTimeout(castTimer);
+  if (castMod && castMod.castClose) castMod.castClose();
 }
 
 /** A player is known by the character they chose, on the board and in the log. */
@@ -1487,14 +1602,16 @@ async function startGame(resume) {
   const btn = $(resume && !resume.net ? 'btnResume' : 'btnStart');
   if (resume) Object.assign(choice, resume.choice);
 
-  // a fresh local or hosted game picks its cast first; guests inherit the host's
-  const needsCast = !resume && NET.net.mode !== 'guest';
-
-  if (needsCast) {
+  // A networked game has already run its select — every player picked their own
+  // seat and the host handed the finished cast down. Only a single-device game
+  // still chooses here, and only for the seats a person is actually sitting in.
+  if (!resume && NET.net.mode === 'off') {
     try {
-      const { pickCharacters } = await import('./select.js');
+      const sel = await import('./select.js');
       $('menu').hidden = true;
-      choice.chars = await pickCharacters(choice.players, choice.style);
+      const seats = humanSeats();
+      const chars = await sel.pickCharacters(choice.players, choice.style, seats);
+      choice.chars = sel.fillRandom(chars, botSeats());   // computers take leftovers
     } catch (err) {
       console.warn('character select unavailable', err);
       choice.chars = null;

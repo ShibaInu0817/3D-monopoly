@@ -1,5 +1,10 @@
-// Cinematic character select. Runs its own small three.js stage, hands back one
-// character index per player. Nothing here touches game state.
+// Cinematic character select. Runs its own small three.js stage and hands back
+// character indices. Nothing here touches game state.
+//
+// Two modes share the whole screen:
+//   hotseat — one device, one human seat after another (pickCharacters)
+//   room    — one device, one seat, on a clock, with everyone else's picks
+//             arriving live from the host (pickInRoom + castUpdate)
 import * as THREE from 'three';
 import { loadPiece, prefetchPieces, pieceReady, makeCharacterToken, CHARACTERS, THEMES, applyMaterialTheme } from './board3d.js';
 import { PLAYER_COLORS } from './data.js';
@@ -10,6 +15,14 @@ let renderer, scene, camera, stage, disc, glowMat, seatLight, piece, last = 0;
 let idx = 0, seat = 0, total = 2, taken = [], picks = [];
 let running = false, resolveAll = null, spin = 0, entered = 0, gen = 0, dir = 1;
 let frameDist = 0.7, frameY = 0.08, sizeW = 0, sizeH = 0;
+
+// hotseat only: which seats this device actually picks for. Bots are not in it —
+// they take what is left once the people are done.
+let mySeats = [];
+// room mode
+let inRoom = false;      // one seat, on a clock, others arriving over the wire
+let locked = false;      // I have confirmed and am waiting on everyone else
+let endsAt = 0, tick = null, onClaim = null, bumpNote = '', myClaim = -1;
 
 const POSES = ['emote-yes', 'interact-right', 'holding-both', 'idle', 'walk'];
 
@@ -134,9 +147,13 @@ function paintCard() {
 
   const owner = taken.indexOf(idx);
   const dup = owner >= 0 && owner !== seat;
-  $('csTaken').hidden = !dup;
+  // a lost race leaves a note that has to outlive this repaint: show() calls
+  // straight back into here, which would otherwise wipe it before it was read
+  $('csTaken').hidden = !dup && !bumpNote;
   if (dup) $('csTaken').textContent = '玩家 ' + (owner + 1) + ' 已经选了';
-  $('csConfirm').disabled = dup;
+  else if (bumpNote) $('csTaken').textContent = bumpNote;
+  // once locked in, the button stays a status line rather than an action
+  $('csConfirm').disabled = dup || (inRoom && locked);
 
   document.querySelectorAll('#csRoster button').forEach((b, k) => {
     b.setAttribute('aria-pressed', String(k === idx));
@@ -196,27 +213,60 @@ function seatHeader() {
     const flag = i === seat ? ' data-now="1"' : done ? ' data-done="1"' : '';
     return `<span${flag}><i style="background:${c.css}"></i>${label}</span>`;
   }).join('');
-  $('csOf').textContent = seat + 1 + ' / ' + total;
-  $('csBack').disabled = seat === 0;
-  $('csConfirm').textContent = seat === total - 1 ? '开始游戏' : '确定';
+
+  if (inRoom) {
+    // there is no previous seat to go back to, and the step counter is a clock
+    $('csBack').hidden = true;
+    paintClock();
+    $('csConfirm').textContent = locked ? '已选好' : '确定';
+    $('csConfirm').disabled = locked || takenByOther(idx);
+    return;
+  }
+  $('csBack').hidden = false;
+  $('csOf').textContent = (mySeats.indexOf(seat) + 1) + ' / ' + mySeats.length;
+  $('csBack').disabled = mySeats.indexOf(seat) === 0;
+  $('csConfirm').textContent = seat === mySeats[mySeats.length - 1] ? '开始游戏' : '确定';
+}
+
+/** True when someone else holds this character. My own pick never blocks me. */
+const takenByOther = i => { const o = taken.indexOf(i); return o >= 0 && o !== seat; };
+
+function paintClock() {
+  const left = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+  $('csOf').textContent = locked ? '等其他人…' : left + 's';
+  $('charSelect').classList.toggle('csHurry', !locked && left <= 5);
 }
 
 function confirm() {
   if ($('csConfirm').disabled) return;
   if (piece && piece.userData.play) piece.userData.play('jump', 0.06);
+  flourish($('csFlash'), [{ opacity: 0.7 }, { opacity: 0 }], { duration: 380, easing: 'ease-out' });
+
+  if (inRoom) {
+    // Claim it and wait. Nothing is marked taken locally — the host says who got
+    // there first, and a lost race must not leave a pick showing that never was.
+    locked = true;
+    myClaim = idx;
+    bumpNote = '';
+    $('csTaken').hidden = true;
+    seatHeader();
+    onClaim && onClaim(idx);
+    return;
+  }
+
   picks[seat] = idx;
   taken[seat] = idx;
   seatHeader();
-  flourish($('csFlash'), [{ opacity: 0.7 }, { opacity: 0 }], { duration: 380, easing: 'ease-out' });
   setTimeout(() => {
-    if (seat >= total - 1) { finish(); return; }
-    seat++;
+    const next = mySeats[mySeats.indexOf(seat) + 1];
+    if (next === undefined) { finish(); return; }
+    seat = next;
     seatHeader();
     renderRoster();
-    let next = 0;
-    while (taken.includes(next) && next < CHARACTERS.length - 1) next++;
+    let free = 0;
+    while (taken.includes(free) && free < CHARACTERS.length - 1) free++;
     dir = 1;
-    show(next);
+    show(free);
   }, 300);
 }
 
@@ -251,8 +301,9 @@ function wire() {
   $('csNext').addEventListener('click', () => show(idx + 1));
   $('csConfirm').addEventListener('click', confirm);
   $('csBack').addEventListener('click', () => {
-    if (seat === 0) return;
-    seat--;
+    const at = mySeats.indexOf(seat);
+    if (inRoom || at <= 0) return;
+    seat = mySeats[at - 1];
     taken[seat] = -1;
     seatHeader(); renderRoster(); show(picks[seat] ?? 0);
   });
@@ -264,23 +315,33 @@ function wire() {
   addEventListener('resize', () => { sizeW = sizeH = 0; if (running) fit(); });
 }
 
-/** Opens the select and resolves with one character index per player. */
-export async function pickCharacters(players, look) {
+/** Give every listed seat a character nobody else holds. Twelve to choose from
+ *  against at most four seats, so the pool never runs dry. Callers fill people
+ *  before computers by calling it twice. */
+export function fillRandom(chars, seats) {
+  const used = new Set(chars.filter(c => c >= 0));
+  for (const s of seats) {
+    if (chars[s] >= 0) continue;
+    const free = CHARACTERS.map((_, i) => i).filter(i => !used.has(i));
+    const pool = free.length ? free : CHARACTERS.map((_, i) => i);
+    const c = pool[Math.floor(Math.random() * pool.length)];
+    used.add(c);
+    chars[s] = c;
+  }
+  return chars;
+}
+
+/** Shared opening: the screen is complete and interactive before any model has
+ *  downloaded, so nobody waits on the network to start choosing. */
+function openScreen(look) {
   const el = $('charSelect');
   el.hidden = false;
   el.classList.add('on');
   el.style.opacity = '1';        // a frozen transition must not leave it invisible
+  el.classList.remove('csHurry');
   wire();
-
-  total = players;
-  seat = 0;
-  taken = new Array(players).fill(-1);
-  picks = new Array(players).fill(0);
   idx = 0; dir = 1; gen = 0;
-
   if (look && THEMES[look]) applyMaterialTheme();
-
-  // the screen is complete and interactive before any model has downloaded
   buildStage();
   sizeW = sizeH = 0;
   fit();
@@ -291,6 +352,72 @@ export async function pickCharacters(players, look) {
   renderRoster();
   show(0);
   prefetchPieces();              // the rest warm up while the first is on screen
+}
 
+/** One device, one seat after another. `seats` is the human seats only — bots
+ *  take what is left afterwards rather than a slot in the queue. */
+export async function pickCharacters(players, look, seats) {
+  total = players;
+  mySeats = (seats && seats.length ? seats : Array.from({ length: players }, (_, i) => i)).slice();
+  inRoom = false; locked = false;
+  seat = mySeats[0];
+  taken = new Array(players).fill(-1);
+  picks = new Array(players).fill(-1);
+  openScreen(look);
   return new Promise(res => { resolveAll = res; });
+}
+
+/** One device, one seat, on a clock, with everyone else's picks arriving from
+ *  the host. `onPick` fires on each confirm — a lost race lets it fire again. */
+export async function pickInRoom({ seat: mySeat, total: players, look, onPick }) {
+  total = players;
+  mySeats = [mySeat];
+  inRoom = true; locked = false; bumpNote = ''; myClaim = -1;
+  onClaim = onPick;
+  seat = mySeat;
+  taken = new Array(players).fill(-1);
+  picks = new Array(players).fill(-1);
+  endsAt = Date.now() + 30000;   // replaced by the host's clock on the first cast
+  clearInterval(tick);
+  tick = setInterval(() => { if (inRoom && running) paintClock(); }, 250);
+  openScreen(look);
+}
+
+/** The host's live board. Repaints who holds what, and if my claim lost the race
+ *  it hands the seat back so the player can choose again. */
+export function castUpdate(chars, until) {
+  if (!inRoom || !running) return;
+  if (until) endsAt = until;
+  taken = Array.from({ length: total }, (_, i) => (chars && chars[i] >= 0 ? chars[i] : -1));
+
+  // Only a board that hands my character to somebody else means I lost. A board
+  // that simply does not have my claim yet is one that crossed it in flight —
+  // common on a public broker — and bumping on that would eject me for nothing.
+  if (locked && taken[seat] < 0 && takenByOther(myClaim)) {
+    locked = false;
+    myClaim = -1;
+    bumpNote = '被人抢先了，再选一个';
+    let free = 0;
+    while (taken.includes(free) && free < CHARACTERS.length - 1) free++;
+    show(free);
+  }
+  renderRoster();
+  seatHeader();
+  paintCard();
+}
+
+/** The game is starting: tear the screen down without resolving anything. */
+export function castClose() {
+  if (!running && !inRoom) return;
+  clearInterval(tick); tick = null;
+  inRoom = false; locked = false; onClaim = null;
+  running = false;
+  const el = $('charSelect');
+  el.classList.remove('on', 'csHurry');
+  el.style.opacity = '';
+  setTimeout(() => {
+    el.hidden = true;
+    if (renderer) { renderer.dispose(); renderer.forceContextLoss(); renderer = null; }
+    if (piece && stage) { stage.remove(piece); piece = null; }
+  }, 320);
 }

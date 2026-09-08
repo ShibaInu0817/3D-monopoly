@@ -454,6 +454,11 @@
   .csSeats span[data-now] i { opacity: 1; box-shadow: 0 0 0 2px rgba(13,11,10,0.25); }
   .csStep { font-size: 10.5px; font-weight: 800; letter-spacing: 0.2em; white-space: nowrap;
     text-transform: uppercase; color: rgba(255,255,255,0.42); }
+  /* the clock in a room game: readable at a glance, urgent in the last seconds */
+  #csOf { font-variant-numeric: tabular-nums; }
+  #charSelect.csHurry #csOf { color: #ff9b7a; animation: csBeat .9s ease-in-out infinite; }
+  @keyframes csBeat { 0%,100% { opacity: 1 } 50% { opacity: 0.45 } }
+  #csBack[hidden] { display: none; }
 
   .csStage { position: relative; min-height: 0; overflow: hidden; }
   .csGhost { position: absolute; z-index: 1; top: 50%; left: 50%; transform: translate(-50%, -58%);

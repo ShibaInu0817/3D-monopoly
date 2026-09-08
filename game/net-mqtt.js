@@ -4,8 +4,12 @@
 // the same list in the same order and stay in lockstep.
 //
 // Messages
-//   host  → guest : welcome | lobby | begin | input | bye | full
-//   guest → host  : hello | intent | left
+//   host  → guest : welcome | lobby | cast | begin | input | bye | full
+//   guest → host  : hello | pick | intent | left
+//
+// `cast` and `pick` run before the game exists: they carry the character select,
+// which every player does on their own device at the same time. The host is the
+// authority there too — it owns the board and rebroadcasts it on every claim.
 //
 // Why a broker rather than peer-to-peer: WebRTC needs a TURN relay to cross NATs
 // and every free one has been withdrawn, while the direct LAN path dies on any
@@ -26,7 +30,7 @@ const BROKERS = [
 // Bumped whenever the wire format changes. Both pages are served from a CDN that
 // caches for 10 minutes, so one device can easily be a version behind the other;
 // without this the mismatch is silent and the join just never completes.
-export const BUILD = 'mqtt-1';
+export const BUILD = 'mqtt-2';   // cast/pick added, players on the wire
 const PREFIX = 'ipohmono/room/';
 const JOIN_MS = 12000;      // how long a guest waits for the host to answer
 const DIAL_MS = 7000;       // per-broker connect budget before trying the next
@@ -36,13 +40,19 @@ export const net = {
   seat: 0,
   code: '',
   seats: [],            // [{seat, nick}]
+  players: 0,           // the host's seat count, so a guest stops trusting its own menu
   onLobby: null,
+  onCast: null,         // ({chars, endsAt}) on a guest: the select opened or moved
+  onPick: null,         // (seat, char) on the host: someone claimed a character
   onBegin: null,        // ({choice, state}) on a guest
   onInput: null,        // (input) on every client, in host order
   onStatus: null,       // (text) connection chatter for the lobby
 };
 
 let client = null, topic = '', seq = 0, me = '', maxSeats = 4;
+// once the select is up the seats are decided; a late joiner would land in one
+// mid-pick, so the room stops answering hello
+let casting = false;
 
 const status = t => net.onStatus && net.onStatus(t);
 const decode = buf => new TextDecoder().decode(buf);
@@ -123,7 +133,9 @@ export async function createRoom(nick, maxPlayers) {
 }
 
 // Retained, so a guest that subscribes later immediately sees the current seats.
-const pubLobby = () => pub({ t: 'lobby', seats: strip(net.seats) }, true);
+// `players` travels with it: the seat count is the host's to decide, and without
+// it a guest renders the lobby from whatever its own menu happened to say.
+const pubLobby = () => pub({ t: 'lobby', seats: strip(net.seats), players: maxSeats }, true);
 
 // The host tracks which client id owns which seat; guests never see the ids.
 let owners = new Map();
@@ -139,6 +151,9 @@ function onHostMsg(_t, buf) {
       status('A player is on an old version of the page');
       return;
     }
+    // the select is already up: every seat is spoken for and a newcomer would
+    // arrive with nobody's board expecting them
+    if (casting && owners.get(m.from) === undefined) { pub({ t: 'full', to: m.from }); return; }
     let seat = owners.get(m.from);
     if (seat === undefined) {
       // lowest free seat, not seats.length — that collides once a middle seat is freed
@@ -152,10 +167,18 @@ function onHostMsg(_t, buf) {
     }
     const s = net.seats.find(x => x.seat === seat);
     if (s) s.nick = String(m.nick || s.nick).slice(0, 14);
-    pub({ t: 'welcome', to: m.from, seat, seats: strip(net.seats) });
+    pub({ t: 'welcome', to: m.from, seat, seats: strip(net.seats), players: maxSeats });
     pubLobby();
     net.onLobby && net.onLobby(net.seats);
     status((s ? s.nick : 'A player') + ' joined');
+  }
+
+  // a guest claims a character during the select; the host decides who got there
+  // first and republishes the board
+  if (m.t === 'pick') {
+    const seat = owners.get(m.from);
+    if (seat === undefined) return;             // not one of ours
+    net.onPick && net.onPick(seat, m.char);
   }
 
   // a guest's Last Will fires when it drops without saying goodbye
@@ -220,11 +243,36 @@ function onGuestMsg(_t, buf) {
   try { m = JSON.parse(decode(buf)); } catch (e) { return; }
   if (!m || m.from === me || (m.to && m.to !== me)) return;
   if (m.t === 'full') { status('That room is full'); return; }
-  if (m.t === 'welcome') { net.seat = m.seat; net.seats = m.seats; net.onLobby && net.onLobby(m.seats); }
-  if (m.t === 'lobby') { net.seats = m.seats; net.onLobby && net.onLobby(m.seats); }
+  if (m.t === 'welcome') {
+    net.seat = m.seat; net.seats = m.seats;
+    if (m.players) net.players = m.players;
+    net.onLobby && net.onLobby(m.seats);
+  }
+  if (m.t === 'lobby') {
+    net.seats = m.seats;
+    if (m.players) net.players = m.players;
+    net.onLobby && net.onLobby(m.seats);
+  }
+  if (m.t === 'cast') net.onCast && net.onCast(m);
   if (m.t === 'begin') net.onBegin && net.onBegin(m);
   if (m.t === 'input') net.onInput && net.onInput(m.input);
   if (m.t === 'bye') status('The host closed the room');
+}
+
+/* ---------------- character select ---------------- */
+
+/** Host only: publish the live pick board. Also latches the room shut, since
+ *  the seats are settled the moment the select is on screen. */
+export function pushCast(chars, endsAt) {
+  casting = true;
+  pub({ t: 'cast', chars, endsAt });
+}
+
+/** One player claims a character. Host records it directly; guest asks the host,
+ *  the same split `submit` uses for game inputs. */
+export function sendPick(char) {
+  if (net.mode === 'guest') { pub({ t: 'pick', char }); return; }
+  net.onPick && net.onPick(net.seat, char);
 }
 
 /* ---------------- shared ---------------- */
@@ -260,6 +308,6 @@ export function leave() {
     }
   }
   try { client && client.end(true); } catch (e) { /* already gone */ }
-  client = null; topic = ''; seq = 0; me = ''; owners = new Map();
-  net.mode = 'off'; net.seat = 0; net.code = ''; net.seats = [];
+  client = null; topic = ''; seq = 0; me = ''; owners = new Map(); casting = false;
+  net.mode = 'off'; net.seat = 0; net.code = ''; net.seats = []; net.players = 0;
 }
