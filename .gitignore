@@ -1,0 +1,15 @@
+# Source art packs are extracted into assets/ by hand; the raw downloads and
+# anything pasted into a chat session do not belong in the repo.
+uploads/
+*.zip
+
+# Claude Design / artifact scratch
+*.dc.html
+.thumbnail
+
+# OS + editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/

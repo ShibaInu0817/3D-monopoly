@@ -65,16 +65,6 @@ export function ownsGroup(s, playerId, g) {
   return groupTiles(g).every(i => s.owner[i] === playerId);
 }
 
-export function netWorth(s, p) {
-  let v = p.cash;
-  s.owner.forEach((o, i) => {
-    if (o !== p.id) return;
-    v += TILES[i].price;
-    if (s.houses[i]) v += s.houses[i] * (TILES[i].houseCost || 0);
-  });
-  return v;
-}
-
 export function rentFor(s, i, roll) {
   const t = TILES[i], o = s.owner[i];
   if (o < 0) return 0;

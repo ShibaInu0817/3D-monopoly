@@ -1,5 +1,5 @@
-// MQTT transport. Same contract as net.js: it moves ordered inputs between
-// browsers and knows nothing about the game. The host is still the only orderer —
+// MQTT transport: it moves ordered inputs between browsers and knows nothing
+// about the game. The host is the only orderer —
 // every input, including the host's own, goes out numbered so all clients replay
 // the same list in the same order and stay in lockstep.
 //
@@ -11,8 +11,8 @@
 // and every free one has been withdrawn, while the direct LAN path dies on any
 // router that drops multicast DNS — which is what made this work between two tabs
 // but not between two devices. Both devices can always open an outbound TLS
-// connection, so that is what this uses. See net.js for the WebRTC transport,
-// which becomes usable again if TURN credentials are ever added.
+// connection, so that is what this uses. The old WebRTC transport it replaced is
+// in the history, at game/net.js, if TURN credentials are ever worth adding.
 
 import mqttlib from 'mqtt';
 

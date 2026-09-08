@@ -229,7 +229,7 @@ export async function openGallery(look, board) {
   if (look) applyLook(look);
 }
 
-export function closeGallery() {
+function closeGallery() {
   const el = $('gallery');
   el.classList.remove('on');
   setTimeout(() => { el.hidden = true; }, 300);

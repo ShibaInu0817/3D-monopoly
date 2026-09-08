@@ -150,17 +150,6 @@ function waveTex(hex) {
     g.globalAlpha = 1;
   }, [3, 3]);
 }
-function paperTex() {
-  return canvasTex(256, (g, S) => {
-    g.fillStyle = '#ffffff';
-    g.fillRect(0, 0, S, S);
-    for (let i = 0; i < 4200; i++) {
-      const v = 200 + Math.random() * 55;
-      g.fillStyle = `rgba(${v},${v},${v},0.5)`;
-      g.fillRect(Math.random() * S, Math.random() * S, 1.4, 1.4);
-    }
-  }, [2, 2]);
-}
 const MAPPED = { frame: woodTex, table: feltTex, land: grassTex, water: waveTex };
 
 const GLOWY = ['water', 'red', 'roof', 'brass', 'leaf'];

@@ -407,7 +407,6 @@ export const PLAYER_COLORS = [
 ];
 
 export const START_CASH = 1500;        // standard
-export const BETA_CASH = 300;          // beta default: 20%, to surface bankruptcies
 export const PASS_START = 200;
 export const JAIL_FEE = 50;
 export const JAIL_TILE = 10;
