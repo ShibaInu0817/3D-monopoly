@@ -1,7 +1,7 @@
 // Menu gallery: preview every piece, every animation clip, and every card reaction.
 import * as THREE from 'three';
 import { loadPieces, makeCharacterToken, THEMES, MATS } from './board3d.js';
-import { BOARDS, PLAYER_COLORS } from './data.js';
+import { BOARDS, PLAYER_COLORS, cardFlavour } from './data.js';
 
 const CLIP_GROUPS = [
   ['Locomotion', ['idle', 'walk', 'sprint', 'jump', 'fall', 'static']],
@@ -127,15 +127,6 @@ function renderClips() {
     </div>`).join('');
 }
 
-// cards with no authored reaction still act out: pick a clip from what the card does
-function clipFor(c) {
-  if (c.act) return c.act;
-  if (c.jail) return 'sit';
-  if (c.move !== undefined || c.back) return 'sprint';
-  if (c.repairs) return 'pick-up';
-  return (c.cash || 0) > 0 ? 'emote-yes' : 'emote-no';
-}
-
 function renderBoardTabs() {
   $('galBoards').innerHTML = Object.entries(BOARDS).map(([id, b]) =>
     `<button data-board="${id}" aria-pressed="${id === boardId}">${b.name}</button>`).join('');
@@ -145,16 +136,20 @@ function renderCards() {
   const b = BOARDS[boardId];
   const deck = (list, title) => `<div class="galGroup"><span class="lbl">${title} · ${list.length}</span>
     <div class="galCards">${list.map(c => {
+      const f = cardFlavour(c);
       const amt = c.cash || 0;
       const gain = amt > 0, loss = amt < 0;
+      // a money card leads with the figure; everything else leads with its motif,
+      // which is the same drawing the popup will stamp on the card face
       const head = gain ? '+' + b.currency + amt
-        : loss ? '−' + b.currency + Math.abs(amt)
-        : c.jail ? '⛔' : (c.move !== undefined || c.back) ? '➜' : '·';
-      return `<button class="galCard ${gain ? 'up' : loss ? 'down' : 'flat'}" data-clip="${clipFor(c)}"
-        data-text="${c.text.replace(/"/g, '&quot;')}" data-amt="${head}"
-        data-kind="${gain ? 'collect' : loss ? 'pay' : 'alert'}"${c.act ? ' data-authored="1"' : ''}>
-        <b>${head}</b><span>${c.text}</span>
-        <em>${clipFor(c)}${c.act ? '' : ' · auto'}</em></button>`;
+        : loss ? '−' + b.currency + Math.abs(amt) : '';
+      return `<button class="galCard ${gain ? 'up' : loss ? 'down' : 'flat'}" data-clip="${f.clip}"
+        data-text="${c.text.replace(/"/g, '&quot;')}" data-amt="${head || f.id}"
+        data-flavour="${f.id}"
+        data-kind="${gain ? 'collect' : loss ? 'pay' : 'alert'}"${f.authored ? ' data-authored="1"' : ''}>
+        <b>${head ? head : `<svg class="galMotif" viewBox="0 0 64 64" aria-hidden="true"><use href="#mf-${f.id}"/></svg>`}</b>
+        <span>${c.text}</span>
+        <em>${f.id} · ${f.clip}${f.authored ? '' : ' · auto'}</em></button>`;
     }).join('')}</div></div>`;
   $('galCardList').innerHTML = deck(b.chance, b.labels.chance) + deck(b.ledger, b.labels.ledger);
   $('galCardCount').textContent = (b.chance.length + b.ledger.length) + ' cards';

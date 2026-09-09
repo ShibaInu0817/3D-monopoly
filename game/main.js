@@ -494,6 +494,12 @@ function tween(ms, fn, ease = t => t) {
 const easeOut = t => 1 - Math.pow(1 - t, 3);
 // rapid mode runs the whole turn loop faster
 const pace = () => (state && state.rapid ? 0.5 : 1);
+// Motion the player did not ask for: the card beats opt out. The piece's own walk
+// and hop stay — that is the game itself, and the turn flow awaits them.
+const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* Beat colours come off the 3D palette, not the CSS tokens: a --good green under
+   neon lighting reads as a bug. leaf/red/brass/water exist in all four THEMES. */
+const BEAT_INK = { good: 'leaf', bad: 'red', warn: 'brass', travel: 'water' };
 
 const clip = (token, name, opts) => { if (token.userData.play) token.userData.play(name, opts); };
 
@@ -945,6 +951,36 @@ function shockRing(i, hex, big) {
   }, easeOut).then(() => { scene.remove(ring); geo.dispose(); mat.dispose(); });
 }
 
+/** The board's answer to a drawn card, at the actor's own feet.
+ *  Reads state and writes only to `scene`, so every client runs it off the same
+ *  replayed notice and nothing here can diverge. Every wait is a `tween`, whose
+ *  wall-clock guard means no beat can hold a turn open. */
+function cardBeat(n, pl) {
+  if (calm() || !board || !pl) return Promise.resolve();
+  const ink = k => THEMES[styleName][k];
+  const tk = tokens[pl.id];
+  const tone = BEAT_INK[n.tone] || BEAT_INK.travel;
+
+  // A repairs card charges a sum over the whole portfolio and, until now, never
+  // said which properties paid it. Ring each one in turn: the total explains itself.
+  if (n.flavour === 'inspection' && n.tiles && n.tiles.length) {
+    n.tiles.forEach((i, k) => setTimeout(() => shockRing(i, ink('red')), k * 70 * pace()));
+    return wait(Math.min(560, n.tiles.length * 70 + 240) * pace());
+  }
+  // a trip announces itself where the piece lands, not here — see teleportTo
+  if (n.flavour === 'errand' || n.flavour === 'wrongTurn' || n.flavour === 'queue') {
+    return Promise.resolve();
+  }
+  if (!tk) return Promise.resolve();
+
+  shockRing(pl.pos, ink(tone));
+  const s0 = tk.scale.x, up = n.tone === 'good';
+  return tween(260 * pace(), t => {
+    const k = Math.sin(t * Math.PI) * (up ? 0.13 : -0.1);
+    tk.scale.set(s0 * (1 + k), s0 * (1 - k * 0.7), s0 * (1 + k));
+  }, easeOut).then(() => tk.scale.set(s0, s0, s0));
+}
+
 /** Drops the new building in from above and lets it squash on landing. */
 async function dropIn(node, i, hex, big) {
   const y = node.position.y, s = node.scale.x;
@@ -1041,11 +1077,38 @@ function showMoment(n) {
     : n.kind === 'collect' ? T('moneyIn', 'Money in') : T('headsUp', 'Heads up');
   // a drawn card reads as the card itself: deck name on the badge, its words as the headline
   $('mTitle').textContent = n.card ? (n.detail || n.title) : n.title;
-  $('mDetail').textContent = n.card ? '' : (n.detail || '');
+
+  /* Rent is the only transfer between two players (`pay()` has one call site), and
+     the notice has carried the recipient all along without anything drawing it.
+     The chips name both sides, so the detail line beneath would only repeat them. */
+  const to = Number.isInteger(n.to) ? state.players[n.to] : null;
+  $('mDetail').textContent = (n.card || to) ? '' : (n.detail || '');
+  $('mFlow').hidden = !to;              // assigned every time: `el.className` above
+  if (to) {                             // resets #moment but never this row
+    $('mFromName').textContent = p.name;
+    $('mFromDot').style.background = PLAYER_COLORS[p.id].css;
+    $('mToName').textContent = to.name;
+    $('mToDot').style.background = PLAYER_COLORS[to.id].css;
+    $('mFlowVerb').textContent = T('rentFlow', 'rent');
+  }
+
+  /* A card's motif is picked by the same rule that picks the piece's clip, so the
+     picture and the animation can never disagree. An old save predates both fields. */
+  const flavour = n.card ? (n.flavour || 'notice') : null;
+  // toggleAttribute, not .hidden: `hidden` is an HTMLElement IDL property and
+  // SVGElement does not implement it, so `svg.hidden = false` sets a dead
+  // expando and leaves the attribute — and the motif — in place.
+  $('mMark').toggleAttribute('hidden', !n.card);
   if (n.card) {
     el.classList.add('drawn');
     el.classList.remove('turned');
     $('mBackName').textContent = n.title;
+    el.dataset.deck = n.deck || (n.title === D.LABELS.chance ? 'chance' : 'ledger');
+    $('mCard').dataset.flavour = flavour;
+    $('mMarkUse').setAttribute('href', '#mf-' + flavour);
+  } else {
+    delete el.dataset.deck;
+    delete $('mCard').dataset.flavour;
   }
 
   const swatch = $('mSwatch');
@@ -1076,8 +1139,13 @@ function showMoment(n) {
   $('mNo').hidden = !isOffer || botTurn || !mine;
   $('mWait').hidden = mine;
   if (!mine) $('mWait').textContent = Tn('waitingFor', 'Waiting for ' + p.name + '…', p.name);
-  $('mAmount').textContent = (n.kind === 'alert' || !Number.isFinite(n.amount))
-    ? (n.card ? T('card', 'Card') : '!') : money(0);
+  // A card with no money in it used to print the word "Card" at 46px into the 80px
+  // number slot. The motif grows into it instead, so a move card and a cash card
+  // stand the same height and nothing jumps between them.
+  const noSum = n.kind === 'alert' || !Number.isFinite(n.amount);
+  $('mCard').classList.toggle('nosum', noSum && !!n.card);
+  $('mAmount').hidden = noSum && !!n.card;
+  $('mAmount').textContent = noSum ? (n.card ? '' : '!') : money(0);
 
   nextFrame(() => el.classList.add('on'));
   const lead = n.card ? 600 : 0;
@@ -1159,7 +1227,9 @@ async function drainNotices() {
     const accepted = await showMoment(n);
     if (reaction) {
       clip(actor, reaction.name, reaction.stay ? {} : { then: 'idle' });
-      await wait(reaction.hold);
+      // the board answers at the same time as the piece, never after it, so the
+      // turn stays exactly as long as it was before the beats existed
+      await Promise.all([wait(reaction.hold), cardBeat(n, state.players[n.who])]);
     }
     if (n.kind === 'offer') {
       if (accepted && E.cur(state).cash >= n.amount) { E.buy(state); clip(actor, 'emote-yes', { then: 'idle' }); }
@@ -1172,10 +1242,13 @@ async function drainNotices() {
 }
 
 /* ---------------- turn flow ---------------- */
-async function teleportTo(p, target) {
+async function teleportTo(p, target, tone) {
   const tk = tokens[p.id];
   clip(tk, 'jump', { then: 'idle' });
   await hop(tk, board.tokenSpot(target, p.id), 0.22, 460 * pace());
+  // The destination announces itself as the piece lands. Ringing it earlier is
+  // wasted: the follow camera sits on the actor while the popup is still up.
+  if (tone && !calm()) shockRing(target, THEMES[styleName][BEAT_INK[tone] || BEAT_INK.travel]);
   clip(tk, 'idle');
 }
 
@@ -1188,9 +1261,15 @@ async function warpTo(target) {
   const p = E.cur(state);
   E.commitMove(state, target, { collectStart: false });   // a debug jump earns no salary
   await teleportTo(p, target);
-  E.resolveLanding(state);
+  const res = E.resolveLanding(state);
   refreshBoardVisuals();
   await drainNotices();
+  // it claimed to mirror runTurn but threw the result away, so a card that moves
+  // you left the piece behind on the card tile while state said otherwise
+  if (res && res.teleport !== undefined) {
+    await teleportTo(p, res.teleport, res.card && D.cardFlavour(res.card).tone);
+    if (res.thenResolve) { E.resolveLanding(state); refreshBoardVisuals(); await drainNotices(); }
+  }
   busy = false; syncHud();
 }
 
@@ -1249,7 +1328,7 @@ async function runTurn(dice, mine) {
     if (res && res.teleport !== undefined) {
       await drainNotices();
       if (!live()) return;
-      await teleportTo(p, res.teleport);
+      await teleportTo(p, res.teleport, res.card && D.cardFlavour(res.card).tone);
       if (!live()) return;
       if (res.thenResolve) {
         E.resolveLanding(state);

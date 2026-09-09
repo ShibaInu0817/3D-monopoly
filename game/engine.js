@@ -1,6 +1,6 @@
 // Pure-ish game engine. All mutation happens through actions so a network
 // transport can replay the same action list on every client later.
-import { TILES, PIER_RENT, CHANCE, LEDGER, LABELS, CURRENCY, PLAYER_COLORS, START_CASH, PASS_START, JAIL_FEE, JAIL_TILE } from './data.js';
+import { TILES, PIER_RENT, CHANCE, LEDGER, LABELS, CURRENCY, PLAYER_COLORS, START_CASH, PASS_START, JAIL_FEE, JAIL_TILE, cardFlavour } from './data.js';
 
 const C = n => CURRENCY + n;
 
@@ -218,21 +218,27 @@ function drawCard(s, kind) {
   say(s, `${deckName}: ${card.text}`);
 
   let delta = card.cash || 0;
+  let assessed = null;
   if (card.cash) p.cash += card.cash;
   if (card.repairs) {
+    // the bill is a sum over their whole portfolio, so carry which tiles paid it:
+    // a total on its own never explains itself, and the board can ring them
+    assessed = [];
     let owed = 0;
     s.owner.forEach((o, i) => {
       if (o !== p.id) return;
       const h = s.houses[i];
+      if (!h) return;
+      assessed.push(i);
       owed += h === 5 ? card.repairs[1] : h * card.repairs[0];
     });
     p.cash -= owed;
     delta -= owed;
   }
-  {
-    notify(s, { kind: delta > 0 ? 'collect' : delta < 0 ? 'pay' : 'alert', amount: Math.abs(delta),
-      title: deckName, detail: card.text, who: p.id, card: true, act: card.act });
-  }
+  const fl = cardFlavour(card);
+  notify(s, { kind: delta > 0 ? 'collect' : delta < 0 ? 'pay' : 'alert', amount: Math.abs(delta),
+    title: deckName, detail: card.text, who: p.id, card: true,
+    deck: kind, flavour: fl.id, tone: fl.tone, tiles: assessed, act: card.act });
   checkBankrupt(s, p);
   s.phase = 'end';
 

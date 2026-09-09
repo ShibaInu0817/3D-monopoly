@@ -11,6 +11,39 @@ function prop(groups, name, group, price) {
   };
 }
 
+/* A card never says what it *is*, only what it does. The motif, the ink and the
+   clip the piece acts out all fall out of the effect fields, so one rule here
+   keeps the gallery preview, the popup and the board reaction in agreement
+   instead of drifting apart the way three separate copies did.
+   `act` is deliberately outside the cascade: the picture describes what the card
+   does, not what the character does about it, so 劈崩人哋把刀 still reads as a
+   bill. It only overrides the clip. */
+const FLAVOURS = {
+  queue:      { clip: 'sit',       tone: 'warn'   },
+  openStall:  { clip: 'sprint',    tone: 'good'   },
+  errand:     { clip: 'sprint',    tone: 'travel' },   // a trip is neither good nor bad
+  wrongTurn:  { clip: 'sprint',    tone: 'warn'   },
+  inspection: { clip: 'pick-up',   tone: 'bad'    },
+  windfall:   { clip: 'emote-yes', tone: 'good'   },
+  bill:       { clip: 'emote-no',  tone: 'bad'    },
+  notice:     { clip: 'emote-no',  tone: 'travel' },   // unreachable: every card does something
+};
+
+export function cardFlavour(card) {
+  // Order matters twice over: a jail card carries no `move`, and `move: 0` is a
+  // real tile, so presence has to be tested rather than truth.
+  const id = card.jail ? 'queue'
+    : card.move === 0 ? 'openStall'
+    : card.move !== undefined ? 'errand'
+    : card.back ? 'wrongTurn'
+    : card.repairs ? 'inspection'
+    : (card.cash || 0) > 0 ? 'windfall'
+    : (card.cash || 0) < 0 ? 'bill'
+    : 'notice';
+  const f = FLAVOURS[id];
+  return { id, clip: card.act || f.clip, tone: f.tone, authored: !!card.act };
+}
+
 /* ---------------- 怡保美食 (Ipoh local food) ----------------
    摊位与老字号名称取自公开的怡保美食报导。每一组都是怡保真实的街道或社区，
    组内的每一档都确实开在那条街上 —— 换名时请连地点一起核对，不要只挑好听的菜名。*/
@@ -49,7 +82,7 @@ const ipoh = {
       collect: n => '收 ' + n, understood: '知道了', no: '不要',
       botBuys: n => '电脑顶下了，' + n + '。', botPasses: '电脑不要。',
       passing: n => '路过' + n, landedOn: n => '走到' + n,
-      rentAt: n => n + ' 的桌租', paidTo: n => '付给 ' + n,
+      rentAt: n => n + ' 的桌租', paidTo: n => '付给 ' + n, rentFlow: '桌租',
       folded: n => n + ' 吃到破产', foldedDetail: '摊位全数归还。',
       noPay: '没钱发了', noPayDetail: '快打模式：开市不再派钱。',
       unstuckTitle: '局面卡住了', unstuckDetail: '这一轮重新开始。',
@@ -71,7 +104,7 @@ const ipoh = {
       logOut: n => n + ' 吃到破产，退出。',
       logDoubles: n => n + ' 掷出对子，再来一轮。',
       roll: '掷骰', rolling: '掷…', rolled: '掷过了', bot: '电脑', endTurn: '换人', camera: '镜头', build: '加桌',
-      roadAhead: '前面十格', newGame: '再来一局', paidTo: '付给',
+      roadAhead: '前面十格', newGame: '再来一局',
       baseRent: '基本租金', fullSet: '（整组 ×2）',
       withHouses: n => '加' + n + '张桌', withHotel: '开分店',
       unclaimed: '未顶', heldBy: n => n + ' 的摊', buildCost: '加桌费',
