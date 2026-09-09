@@ -263,9 +263,9 @@ function onGuestMsg(_t, buf) {
 
 /** Host only: publish the live pick board. Also latches the room shut, since
  *  the seats are settled the moment the select is on screen. */
-export function pushCast(chars, endsAt) {
+export function pushCast(chars, endsAt, board) {
   casting = true;
-  pub({ t: 'cast', chars, endsAt });
+  pub({ t: 'cast', chars, endsAt, board });
 }
 
 /** One player claims a character. Host records it directly; guest asks the host,

@@ -320,13 +320,18 @@
 
   #build { bottom: 324px; right: 20px; width: 282px; padding: 14px 17px 16px; }
   #buildList { list-style: none; margin: 9px 0 0; padding: 0; display: grid; gap: 7px; max-height: 190px; overflow: auto; }
-  #buildList li { display: grid; grid-template-columns: 9px 1fr 28px 28px; gap: 9px; align-items: center; }
+  #buildList li { display: grid; grid-template-columns: 9px 1fr 44px 44px; gap: 9px; align-items: center; }
   .chip { width: 9px; height: 22px; border-radius: 3px; }
   .bname { font-size: 12.5px; display: grid; line-height: 1.2; font-weight: 700; }
   .bname em { font-style: normal; font-size: 10.5px; font-weight: 600; color: var(--soft); }
-  #buildList button { height: 26px; border-radius: 9px; border: var(--edge); background: var(--panel);
+  #buildList button { height: 40px; border-radius: 9px; border: var(--edge); background: var(--panel);
     font-size: 16px; font-weight: 700; line-height: 1; cursor: pointer; color: var(--ink); }
-  #buildList button:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+  /* hover only where hovering exists — on iOS it sticks after a tap, so a touch
+     player is left unable to tell a hit from a miss */
+  @media (hover: hover) {
+    #buildList button:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+  }
+  #buildList button:active:not(:disabled) { background: var(--ink); color: var(--paper); transform: scale(0.94); }
   #buildList button:disabled { opacity: 0.28; cursor: default; }
   #buildEmpty { font-size: 12.5px; font-weight: 600; color: var(--soft); margin: 8px 0 0; }
 
@@ -641,9 +646,12 @@
     18% { opacity: 1 } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.1) rotate(240deg) } }
 
   /* ---------- build / sell confirm ---------- */
-  #confirm { position: fixed; inset: 0; z-index: 32; display: grid; place-items: center; pointer-events: none; }
+  /* html/body are overflow:hidden, so without a scroller here the card is simply
+     clipped on a short landscape phone and the buttons cannot be reached */
+  #confirm { position: fixed; inset: 0; z-index: 32; display: grid; place-items: center;
+    pointer-events: none; overflow-y: auto; overscroll-behavior: contain; padding: 12px 0; }
   #confirm[hidden] { display: none; }
-  #confirm .veil { position: absolute; inset: 0; background: rgba(10,12,16,0); transition: background .3s; }
+  #confirm .veil { position: fixed; inset: 0; background: rgba(10,12,16,0); transition: background .3s; }
   #confirm.on { pointer-events: auto; }
   #confirm.on .veil { background: rgba(10,12,16,0.5); }
   #cCard { position: relative; width: 392px; padding: 34px 30px 26px; text-align: center;
@@ -738,7 +746,8 @@
     #aTile { font-size: 12px; }
     #aBadge { padding: 6px 10px; font-size: 9.5px; letter-spacing: 0.1em; }
     #aBar { width: 9px; }
-    #cCard { width: min(392px, calc(100vw - 26px)); padding: 28px 20px 20px; }
+    #cCard { width: min(392px, calc(100vw - 26px)); padding: 28px 20px 20px;
+      max-height: calc(100dvh - 24px); overflow-y: auto; }
     #cAmount { font-size: 48px; }
     #cTile { font-size: 18px; }
   }
@@ -1024,6 +1033,24 @@
             </svg>
           </span>
           <span class="cap"><b>Hustle City</b><span>Rise, grind, expense it</span></span>
+        </button>
+
+        <button class="bcard" data-pick="board" data-val="pirates" aria-pressed="false">
+          <span class="art" style="background:linear-gradient(160deg,#bfe6ea,#6fb3c4)">
+            <svg viewBox="0 0 120 120" fill="none">
+              <rect x="10" y="10" width="100" height="100" rx="10" fill="#f6efdc" stroke="#3b5566" stroke-width="3"/>
+              <circle cx="60" cy="60" r="30" fill="#7fd0dd"/>
+              <circle cx="60" cy="60" r="22" fill="#e8d6a8"/>
+              <circle cx="60" cy="60" r="14" fill="#6fae5a"/>
+              <path d="M46 70 l30 -6 6 10 -32 4 z" fill="#7a5230"/>
+              <path d="M64 62 v-22" stroke="#5a3d24" stroke-width="3"/>
+              <path d="M64 42 l14 6 -14 6 z" fill="#2f3d52"/>
+              <g fill="#3b5566"><rect x="14" y="14" width="18" height="12" rx="3"/><rect x="88" y="94" width="18" height="12" rx="3"/></g>
+              <g fill="#c4913a"><rect x="36" y="14" width="14" height="12" rx="3"/><rect x="70" y="94" width="14" height="12" rx="3"/></g>
+              <g fill="#3f9a9a"><rect x="14" y="70" width="12" height="16" rx="3"/><rect x="94" y="34" width="12" height="16" rx="3"/></g>
+            </svg>
+          </span>
+          <span class="cap"><b>Pirate Cove</b><span>A cursed crew, rent at high tide</span></span>
         </button>
 
         

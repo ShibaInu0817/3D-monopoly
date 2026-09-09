@@ -9,9 +9,12 @@ const $ = id => document.getElementById(id);
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
 /** Drop every open bottom sheet and un-press its tab. The sheet keys come from
- *  the tab row itself, so a new tab needs no second edit here. */
-function closeSheets() {
+ *  the tab row itself, so a new tab needs no second edit here. Pass a key to
+ *  spare that one sheet: a popup covers the build sheet anyway (z-index 12 over
+ *  8), so closing it only loses the player's place mid-decision. */
+function closeSheets(keep) {
   document.querySelectorAll('#tabs .tab').forEach(b => {
+    if (b.dataset.sheet === keep) return;
     document.body.classList.remove('sheet-' + b.dataset.sheet);
     b.setAttribute('aria-pressed', 'false');
   });
@@ -72,6 +75,9 @@ function wireMenu() {
       if (!wasOpen) document.body.classList.add('sheet-' + key);
       document.querySelectorAll('#tabs .tab').forEach(b =>
         b.setAttribute('aria-pressed', String(!wasOpen && b === btn)));
+      // opening the build sheet holds the turn open; closing it starts the clock
+      // again. Bound at module load, so `state` may not exist yet.
+      if (state && state.phase === 'end') maybeAutoEnd();
     });
   });
   // a popup or a new turn should never leave a sheet covering the board
@@ -769,13 +775,22 @@ function showDeed(i) {
 
 function renderBuild() {
   const p = E.cur(state);
+  // Only ever offer the seat this device is actually playing. In solo games
+  // isMySeat() is true for every seat, so without the bot test the panel would
+  // hand you the bot's deeds on the bot's turn.
+  const mine = myTurn() && !p.bot;
   const owned = [];
-  for (let i = 0; i < 40; i++) {
+  if (mine) for (let i = 0; i < 40; i++) {
     if (state.owner[i] !== p.id || D.TILES[i].kind !== 'property') continue;
     if (!E.ownsGroup(state, p.id, D.TILES[i].group)) continue;
     owned.push(i);
   }
-  $('buildEmpty').hidden = owned.length > 0;
+  // Two different silences: "you have no complete set" and "it isn't your turn".
+  // Showing the first when the second is true is what read as a broken panel.
+  const empty = $('buildEmpty');
+  empty.hidden = owned.length > 0;
+  empty.textContent = mine ? D.LABELS.buildHint
+    : Tn('waitingFor', 'Waiting for ' + p.name + '…', p.name);
   $('buildList').innerHTML = owned.map(i => {
     const t = D.TILES[i], n = state.houses[i];
     const label = n === 5 ? D.LABELS.hotel : n ? `${n} ${n > 1 ? D.LABELS.houses : D.LABELS.house}` : T('empty', 'Empty');
@@ -864,7 +879,11 @@ function askConfirm(i, selling) {
       $('cNo').removeEventListener('click', no);
       removeEventListener('keydown', onKey);
       el.classList.remove('on');
-      setTimeout(() => { el.hidden = true; el.className = ''; }, 300);
+      setTimeout(() => {
+        el.hidden = true; el.className = '';
+        // only now is buildBusy() false, so this is where the clock restarts
+        if (state && state.phase === 'end') maybeAutoEnd();
+      }, 300);
       tone(ok ? [523, 784] : [440, 330], 0.08, 'triangle', 0.03);
       res(ok);
     };
@@ -1015,7 +1034,7 @@ function showMoment(n) {
   el.className = n.kind;
   $('mWhoName').textContent = p.name;
   $('mWho').querySelector('i').style.background = PLAYER_COLORS[p.id].css;
-  closeSheets();
+  closeSheets('build');            // the popup covers it; don't lose their place
   $('mBadge').textContent = n.card ? n.title
     : isOffer ? T('forSale', 'For sale')
     : n.kind === 'pay' ? T('paymentDue', 'Payment due')
@@ -1297,8 +1316,12 @@ function stallCheck(now) {
 
   const sig = state.turn + '/' + state.phase + '/' + state.log.length + '/' + busy;
   // the escape hatch appears only once the automatic recovery has had its go.
-  // an open confirm dialog is a decision, not a stall, so it counts as waiting.
-  const waitingOnHuman = (!$('moment').hidden && !isBot()) || !$('confirm').hidden;
+  // an open confirm dialog is a decision, not a stall, so it counts as waiting —
+  // and so does an open build sheet on the player's own turn, which deliberately
+  // holds the auto-end clock. Scoped to their own turn so a genuinely wedged bot
+  // still surfaces the button with the sheet left open.
+  const waitingOnHuman = (!$('moment').hidden && !isBot()) || !$('confirm').hidden
+    || (document.body.classList.contains('sheet-build') && !isBot() && myTurn());
   if (sig !== stallSig) { stallSig = sig; stallSince = now; }
   $('btnUnstick').hidden = waitingOnHuman || now - stallSince < 7000;
 
@@ -1365,8 +1388,15 @@ function unstick(fromInput) {
   if (isBot()) botTick();
 }
 
+/** True while the player is part-way through a build. On a phone the build panel
+ *  is a sheet that costs a tab-tap to open, and that tap alone can eat the whole
+ *  auto-end window — so the turn used to end under their finger. */
+const buildBusy = () =>
+  document.body.classList.contains('sheet-build') || !$('confirm').hidden;
+
 function maybeAutoEnd() {
   clearTimeout(autoTimer);
+  if (buildBusy()) return;         // re-armed when the sheet or the dialog closes
   autoTimer = setTimeout(() => { if (state.phase === 'end' && !busy && myTurn()) requestEnd(); }, 1600 * pace());
 }
 
@@ -1509,7 +1539,9 @@ const botSeats = () => {
 async function hostOpenCast() {
   castChars = new Array(castTotal()).fill(-1);
   castDeadline = Date.now() + CAST_MS;      // set before publishing: a fast guest
-  NET.pushCast(castChars, castDeadline);    // can claim before we finish opening
+  // the board rides along: a guest's own menu says nothing about the host's room,
+  // and the crew on offer depends on it
+  NET.pushCast(castChars, castDeadline, choice.board);
   clearTimeout(castTimer);
   castTimer = setTimeout(hostCloseCast, CAST_MS + 250);
   await enterCast({ chars: castChars, endsAt: castDeadline });
@@ -1558,6 +1590,8 @@ async function enterCast(msg) {
   if (castOpen) { if (castMod) castMod.castUpdate(msg.chars, msg.endsAt); return; }
   castOpen = true;
   castDeadline = msg.endsAt || Date.now() + CAST_MS;
+  if (msg.board) choice.board = msg.board;
+  D.setBoard(choice.board);            // publishes the board's crew before we load one
   $('menu').hidden = true;
   $('lobby').hidden = true;
   try {
@@ -1608,6 +1642,7 @@ async function startGame(resume) {
   if (!resume && NET.net.mode === 'off') {
     try {
       const sel = await import('./select.js');
+      D.setBoard(choice.board);        // the crew belongs to the board; pick it first
       $('menu').hidden = true;
       const seats = humanSeats();
       const chars = await sel.pickCharacters(choice.players, choice.style, seats);
@@ -1662,7 +1697,6 @@ async function startGame(resume) {
   $('btnRestart').textContent = T('newGame', 'New game');
   $('mNo').textContent = T('no', 'No thanks');
   $('rapidChip').textContent = T('rapid', 'Rapid');
-  $('buildEmpty').textContent = b.labels.buildHint;
   mountCheat();                    // needs D.TILES, so it waits for setBoard
 
   buildScene();

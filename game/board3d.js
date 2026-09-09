@@ -1,7 +1,7 @@
 // Miniature-diorama board: geometry, canvas-textured tiles, tokens, buildings.
 // Everything visual is driven by a THEME so the look can be swapped live.
 import * as THREE from 'three';
-import { TILES, GROUPS, BOARD, CURRENCY } from './data.js';
+import { TILES, GROUPS, BOARD, CURRENCY, CAST } from './data.js';
 
 export const HALF = 0.64;
 export const THICK = 0.032;
@@ -350,39 +350,44 @@ function tileTexture(i) {
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
-/* Kenney Mini Characters (CC0). Skinned, and the pack ships 33 clips —
-   idle, walk, jump, sit, emote-yes/no, die — so each piece keeps its rig. */
-const PIECE_URLS = Array.from({ length: 12 },
-  (_, i) => './assets/pieces/char-' + String(i + 1).padStart(2, '0') + '.glb');
+/* The playable crew. Which crew depends on the board — CAST is a live binding
+   that setBoard swaps — so nothing here may capture it at module load.
 
-/* Named from each model's own look — the order matches PIECE_URLS, and these
-   names are what the player carries on the board. */
-export const CHARACTERS = [
-  { name: '霞姐',   role: '茶室阿姐',   line: '一手抹桌，一手端茶' },
-  { name: '阿德',   role: '打包大王',   line: '眼镜一戴，排队最快' },
-  { name: '小敏',   role: '晨跑健将',   line: '五点半就绕完一圈' },
-  { name: '光头炳', role: '炒粉师傅',   line: '锅气全靠这双手' },
-  { name: '妮妮',   role: '背包学生',   line: '连帽一拉就去吃' },
-  { name: '阿祥',   role: '交通警',     line: '这条街他说了算' },
-  { name: '慧敏',   role: '写字楼会计', line: '每一分都算得清' },
-  { name: '陈老板', role: '收租佬',     line: '西装笔挺，租金准时' },
-  { name: '阿玲',   role: '夜班护士',   line: '下班第一站是夜市' },
-  { name: '大雄',   role: '工地师傅',   line: '护目镜一戴就开工' },
-  { name: '珍珍',   role: '观光客',     line: '背包塞满伴手礼' },
-  { name: '阿豹',   role: '摩托快递',   line: '巷子窄他更快' },
-];
-const pieceProtos = [];
-const pieceJobs = [];
+   Every pack these models come from (Mini Characters, Mini Dungeon/Arena/Forest/
+   Skate/Arcade/Market, Graveyard Kit) is CC0 and, importantly, shares one rig
+   and one set of clip names: idle, walk, jump, sit, die, emote-yes,
+   attack-kick-right and the rest. That is what lets a board mix them freely. */
+export { CAST as CHARACTERS } from './data.js';
+
+let pieceProtos = [];
+let pieceJobs = [];
 let pieceLoader = null;
+let castKey = null;
+
+/** Drop the cache when the board's crew changes. Without this a cache keyed by
+ *  index alone would hand out the previous board's models under the new names. */
+function castCheck() {
+  const key = CAST.map(c => c.url).join('|');
+  if (key === castKey) return;
+  castKey = key;
+  pieceProtos = [];
+  pieceJobs = [];
+}
+
+// `wrap` is taken by the text layout helper above
+const castIndex = i => ((i % CAST.length) + CAST.length) % CAST.length;
 
 /** One character, on demand. The select shows the first the moment it lands
  *  instead of waiting on the whole cast. */
 export function loadPiece(i) {
-  const k = ((i % PIECE_URLS.length) + PIECE_URLS.length) % PIECE_URLS.length;
+  castCheck();
+  const k = castIndex(i);
   if (pieceProtos[k]) return Promise.resolve(pieceProtos[k]);
   if (!pieceJobs[k]) {
     pieceLoader = pieceLoader || new GLTFLoader();
-    pieceJobs[k] = pieceLoader.loadAsync(PIECE_URLS[k]).then(g => {
+    const mine = castKey;                        // a board switch mid-load wins
+    pieceJobs[k] = pieceLoader.loadAsync(CAST[k].url).then(g => {
+      if (mine !== castKey) return { scene: g.scene, clips: g.animations };
       g.scene.name = 'piece_proto_' + k;
       pieceProtos[k] = { scene: g.scene, clips: g.animations };
       return pieceProtos[k];
@@ -392,24 +397,32 @@ export function loadPiece(i) {
 }
 
 /** Warm the rest in the background; callers do not wait on it. */
-export function prefetchPieces() { PIECE_URLS.forEach((_, i) => loadPiece(i)); }
+export function prefetchPieces() { castCheck(); CAST.forEach((_, i) => loadPiece(i)); }
 
 export function pieceReady(i) {
-  return !!pieceProtos[((i % PIECE_URLS.length) + PIECE_URLS.length) % PIECE_URLS.length];
+  castCheck();
+  return !!pieceProtos[castIndex(i)];
 }
 
 export async function loadPieces() {
-  await Promise.all(PIECE_URLS.map((_, i) => loadPiece(i)));
+  castCheck();
+  await Promise.all(CAST.map((_, i) => loadPiece(i)));
   return pieceProtos;
 }
 
-/* Kenney City Kit (CC0). Sample houses and towers stand in for the
-   procedural boxes, normalised so a tile's row of them still fits. */
-const HOUSE_URLS = ['./assets/buildings/house-a.glb', './assets/buildings/house-b.glb',
-                    './assets/buildings/house-c.glb'];
-const TOWER_URLS = ['./assets/buildings/tower-a.glb', './assets/buildings/tower-b.glb',
-                    './assets/buildings/tower-c.glb', './assets/buildings/tower-d.glb'];
-const houseProtos = [], towerProtos = [];
+/* Kenney City Kit (CC0) by default; a board may bring its own kit through
+   `build`, the way it brings its own crew. Normalised so a tile's row of them
+   still fits whatever the source models measure. */
+const CITY_BUILD = {
+  houses: ['./assets/buildings/house-a.glb', './assets/buildings/house-b.glb',
+           './assets/buildings/house-c.glb'],
+  towers: ['./assets/buildings/tower-a.glb', './assets/buildings/tower-b.glb',
+           './assets/buildings/tower-c.glb', './assets/buildings/tower-d.glb'],
+};
+let houseProtos = [], towerProtos = [];
+let buildKey = null;
+// extra scenery a centrepiece may want, loaded alongside the building kit
+const sceneProps = new Map();
 
 /** Sit a kit model on y=0 at a target height, shrinking further if its
  *  footprint would then overhang the tile. Height-first keeps a row of
@@ -430,14 +443,24 @@ function normalise(src, height, maxFoot) {
 }
 
 export async function loadBuildings() {
-  if (houseProtos.length) return;
+  const kit = BOARD.build || CITY_BUILD;
+  const key = kit.houses.concat(kit.towers).join('|');
+  if (key === buildKey) return;                 // already holding this board's kit
+  buildKey = key;
+  houseProtos = []; towerProtos = [];
   const loader = new GLTFLoader();
   const [houses, towers] = await Promise.all([
-    Promise.all(HOUSE_URLS.map(u => loader.loadAsync(u))),
-    Promise.all(TOWER_URLS.map(u => loader.loadAsync(u))),
+    Promise.all(kit.houses.map(u => loader.loadAsync(u))),
+    Promise.all(kit.towers.map(u => loader.loadAsync(u))),
   ]);
+  if (key !== buildKey) return;                 // a board switch overtook us
   houses.forEach(g => houseProtos.push(g.scene));
   towers.forEach(g => towerProtos.push(g.scene));
+
+  sceneProps.clear();
+  const extra = kit.props || [];
+  const loaded = await Promise.all(extra.map(u => loader.loadAsync(u).catch(() => null)));
+  loaded.forEach((g, i) => { if (g) sceneProps.set(extra[i].split('/').pop().replace('.glb', ''), g.scene); });
 }
 
 const CLIP_LOOP = { idle: true, walk: true, sprint: true, sit: false, crouch: false, die: false };
@@ -454,7 +477,10 @@ export function makeCharacterToken(hex, name, index) {
   plinth.castShadow = plinth.receiveShadow = true;
   g.add(plinth);
 
-  const proto = pieceProtos[index % pieceProtos.length];
+  // pieceProtos is sparse while a cast is still loading, so its length is not
+  // the cast size — index against the cast and let a gap fall through to null
+  const proto = pieceProtos[castIndex(index)];
+  if (!proto) return makeToken(hex, name);      // model not in yet: plain pawn
   // SkeletonUtils.clone deep-clones the bones and rebinds each SkinnedMesh —
   // Object3D.clone would leave every piece skinned to the original's rig.
   const model = cloneSkinned(proto.scene);
@@ -645,6 +671,45 @@ function makeSkyline(name) {
   return g;
 }
 
+/** A hulk half-buried in the sand, rocks and palms around it. The board's
+ *  centre is the one place a pirate island can put a wreck. */
+function makeWreck(name) {
+  const g = new THREE.Group();
+  g.name = name;
+  const hull = sceneProps.get('ship-wreck') || sceneProps.get('ship-ghost');
+  if (!hull) return makeTower(name);            // kit missing: fall back to a mast-ish tower
+
+  const sand = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.168, 0.008, 48), MATS.sand);
+  sand.name = name + '_bar'; sand.position.y = 0.004; sand.receiveShadow = true;
+  g.add(sand);
+
+  const wreck = normalise(hull, 0.2, 0.34);
+  wreck.name = name + '_hull';
+  wreck.position.set(0.01, 0.006, 0);
+  wreck.rotation.set(0.1, -0.7, 0.13);           // listing, as a wreck should
+  g.add(wreck);
+
+  // rocks and palms break the silhouette so the hull does not read as a prop
+  const dressing = [
+    ['rocks-sand-a', -0.13, 0.08, 0.055, 0.4],
+    ['rocks-sand-b', 0.125, -0.1, 0.05, 2.1],
+    ['palm-detailed-straight', -0.05, -0.14, 0.13, 0.9],
+    ['palm-detailed-bend', 0.14, 0.09, 0.12, 3.4],
+    ['barrel', -0.15, -0.04, 0.022, 1.2],
+    ['chest', 0.09, 0.14, 0.024, 2.6],
+  ];
+  dressing.forEach(([key, x, z, h, rot], k) => {
+    const src = sceneProps.get(key);
+    if (!src) return;
+    const n = normalise(src, h, 0.1);
+    n.name = name + '_' + key + '_' + k;
+    n.position.set(x, 0.006, z);
+    n.rotation.y = rot;
+    g.add(n);
+  });
+  return g;
+}
+
 function makeCrystal(name) {
   const g = new THREE.Group();
   g.name = name;
@@ -718,20 +783,24 @@ export class BoardView {
     G.add(land);
 
     const centre = BOARD.centre === 'skyline' ? makeSkyline('centre_skyline')
+      : BOARD.centre === 'wreck' ? makeWreck('centre_wreck')
       : BOARD.centre === 'tower' ? makeTower('centre_tower')
       : BOARD.centre === 'crystal' ? makeCrystal('centre_crystal')
       : makeLighthouse('centre_lighthouse');
-    const town = BOARD.centre === 'skyline';
-    centre.scale.setScalar(town ? 1.7 : BOARD.centre === 'lighthouse' ? 1.7 : 1.5);
-    centre.position.set(town ? 0 : -0.03, TOP + 0.016, town ? 0 : -0.02);
+    // a town and a wreck both fill the middle: centred, and they must not turn
+    const wide = BOARD.centre === 'skyline' || BOARD.centre === 'wreck';
+    centre.scale.setScalar(BOARD.centre === 'skyline' ? 1.7
+      : BOARD.centre === 'wreck' ? 1.45
+      : BOARD.centre === 'lighthouse' ? 1.7 : 1.5);
+    centre.position.set(wide ? 0 : -0.03, TOP + 0.016, wide ? 0 : -0.02);
     G.add(centre);
-    // the render loop slowly spins the beacon; a whole town must not spin, so it
-    // gets an empty stand-in instead
-    if (town) { const idle = new THREE.Group(); idle.name = 'beacon_idle'; G.add(idle); this.beacon = idle; }
+    // the render loop slowly spins the beacon; a town or a beached hull must not
+    // spin, so it gets an empty stand-in instead
+    if (wide) { const idle = new THREE.Group(); idle.name = 'beacon_idle'; G.add(idle); this.beacon = idle; }
     else this.beacon = centre;
 
-    // trees ring the town rather than growing through it
-    (town
+    // trees ring the centre rather than growing through it
+    (wide
       ? [[0.30, 0.06, 0.9, false], [0.24, 0.19, 0.8, true], [0.07, 0.31, 1.0, true],
          [-0.17, 0.26, 0.85, false], [-0.31, 0.05, 0.95, true], [-0.24, -0.19, 0.8, false],
          [-0.03, -0.31, 1.0, true], [0.22, -0.22, 0.85, false]]

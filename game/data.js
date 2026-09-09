@@ -12,16 +12,17 @@ function prop(groups, name, group, price) {
 }
 
 /* ---------------- 怡保美食 (Ipoh local food) ----------------
-   摊位与老字号名称取自公开的怡保美食报导。*/
+   摊位与老字号名称取自公开的怡保美食报导。每一组都是怡保真实的街道或社区，
+   组内的每一档都确实开在那条街上 —— 换名时请连地点一起核对，不要只挑好听的菜名。*/
 const IPOH_GROUPS = [
-  { name: '白咖啡·旧街场', color: 0x9c6b42, houseCost: 50 },
-  { name: '芽菜鸡·高温街', color: 0xd9b23c, houseCost: 50 },
-  { name: '河粉面食', color: 0xd97a3c, houseCost: 100 },
-  { name: '酿豆腐·大树脚', color: 0x74a83f, houseCost: 100 },
-  { name: '糖水街', color: 0xd44f6e, houseCost: 150 },
-  { name: '粥粉面·体育馆', color: 0x4a9bb5 , houseCost: 150 },
-  { name: '甜品', color: 0x8a63c4, houseCost: 200 },
-  { name: '伴手礼', color: 0x2f4858, houseCost: 200 },
+  { name: '兵如港', color: 0x9c6b42, houseCost: 50 },
+  { name: '万里望', color: 0xd9b23c, houseCost: 50 },
+  { name: '昆仑喇叭', color: 0xd97a3c, houseCost: 100 },
+  { name: '休罗街', color: 0x74a83f, houseCost: 100 },
+  { name: '姚德胜街', color: 0xd44f6e, houseCost: 150 },
+  { name: '梁燊南街', color: 0x4a9bb5 , houseCost: 150 },
+  { name: '戏院街', color: 0x8a63c4, houseCost: 200 },
+  { name: '旧街场', color: 0x2f4858, houseCost: 200 },
 ];
 
 const ipoh = {
@@ -29,7 +30,7 @@ const ipoh = {
   currency: 'RM', groups: IPOH_GROUPS,
   labels: {
     start: '开市·饮早茶', jail: '排长龙', rest: '茶室歇脚',
-    chance: '食神有话说', ledger: '肚子公告',
+    chance: '食神话你知', ledger: '肚腩快报',
     house: '一张桌', houses: '张桌', hotel: '分店',
     jailLine: '被人潮困在队伍里。',
     jailDetail: '排三轮，或掷出对子插队成功。',
@@ -78,6 +79,7 @@ const ipoh = {
       nHeld: n => '持 ' + n + ' 个', oneHeld: '持一个', bothHeld: '持两个',
       deedCount: n => n + ' 个摊', inJail: '排队中',
       nowPlaying: '现在轮到', onTile: '在', changeBoard: '换张板',
+      waitingFor: n => '等紧 ' + n + '…',
       buildTitle: '加桌 — 同色收齐才行',
       roadFrom: n => '从 ' + n + ' 起', roadCount: n => '只看到 ' + n + ' 格',
       landToBuy: '走到这格才能顶。', empty: '空桌', restart: '再来一局',
@@ -94,75 +96,84 @@ const ipoh = {
   centre: 'skyline',
   tiles: g => [
     { kind: 'start', name: '开市·饮早茶' },
-    prop(g, '南香茶餐室', 0, 60),
-    { kind: 'ledger', name: '肚子公告' },
-    prop(g, '天津茶室', 0, 60),
-    { kind: 'tax', name: '停车罚单', amount: 200 },
+    prop(g, '忠记大树脚', 0, 60),
+    { kind: 'ledger', name: '肚腩快报' },
+    prop(g, '德嫂猪肠粉', 0, 60),
+    { kind: 'tax', name: '泊车牛肉干', amount: 200 },
     { kind: 'pier', name: '新街场夜市', price: 200 },
-    prop(g, '安记芽菜鸡', 1, 100),
-    { kind: 'chance', name: '食神有话说' },
-    prop(g, '老黄芽菜鸡', 1, 100),
-    prop(g, '高温街芽菜鸡', 1, 120),
+    prop(g, '银燕花生厂', 1, 100),
+    { kind: 'chance', name: '食神话你知' },
+    prop(g, '万里望为食街', 1, 100),
+    prop(g, '财安园海南包', 1, 120),
     { kind: 'jail', name: '排长龙' },
-    prop(g, '天津鸡丝河粉', 2, 140),
+    prop(g, '余合饼家', 2, 140),
     { kind: 'works', name: '石灰山泉水', price: 150 },
-    prop(g, '德记月光河', 2, 140),
-    prop(g, '休罗街客家面', 2, 160),
+    prop(g, '福德祠叻沙', 2, 140),
+    prop(g, '康记猪肠粉', 2, 160),
     { kind: 'pier', name: '糖水街', price: 200 },
-    prop(g, '忠记大树头', 3, 180),
-    { kind: 'ledger', name: '肚子公告' },
-    prop(g, '四十年大树脚', 3, 180),
-    prop(g, '兵如港炸料粉', 3, 200),
+    prop(g, '新泉芳咖喱面', 3, 180),
+    { kind: 'ledger', name: '肚腩快报' },
+    prop(g, '巴黎客家面', 3, 180),
+    prop(g, '洪记饭店', 3, 200),
     { kind: 'rest', name: '茶室歇脚' },
-    prop(g, '长记牛腩面', 4, 220),
-    { kind: 'chance', name: '食神有话说' },
-    prop(g, '猪杂粥摊', 4, 220),
-    prop(g, '杂果雪冰', 4, 240),
+    prop(g, '老黄芽菜鸡', 4, 220),
+    { kind: 'chance', name: '食神话你知' },
+    prop(g, '安记芽菜鸡', 4, 220),
+    prop(g, '德记月光河', 4, 240),
     { kind: 'pier', name: '体育馆美食中心', price: 200 },
-    prop(g, '辉记鱼头米粉', 5, 260),
-    prop(g, '咖喇面档', 5, 260),
-    { kind: 'works', name: '旧街场咖啡厂', price: 150 },
-    prop(g, '亚三叻沙档', 5, 280),
+    prop(g, '富山茶楼', 5, 260),
+    prop(g, '明阁点心', 5, 260),
+    { kind: 'works', name: '炭烧咖啡厂', price: 150 },
+    prop(g, '王福满点心', 5, 280),
     { kind: 'gotojail', name: '被叫去排队' },
-    prop(g, '黄记豆腐花', 6, 300),
-    prop(g, '甘榜煎蕊', 6, 300),
-    { kind: 'ledger', name: '肚子公告' },
-    prop(g, '天津焦糖炖蛋', 6, 320),
-    { kind: 'pier', name: '兵如港巴刹', price: 200 },
-    { kind: 'chance', name: '食神有话说' },
-    prop(g, '新荣香咖椰角', 7, 350),
+    prop(g, '宴琼林盐焗鸡', 6, 300),
+    prop(g, '奇峰豆腐花', 6, 300),
+    { kind: 'ledger', name: '肚腩快报' },
+    prop(g, '文冬口茶室', 6, 320),
+    { kind: 'pier', name: '怡保花园夜市', price: 200 },
+    { kind: 'chance', name: '食神话你知' },
+    prop(g, '南香茶餐室', 7, 350),
     { kind: 'tax', name: '咖啡钱', amount: 100 },
-    prop(g, '淡汶香饼家', 7, 400),
+    prop(g, '天津茶室', 7, 400),
   ],
+  /* 卡片规矩：TVB 金句系「点解要去」嘅原因，唔系装饰。冇金句嗰阵，
+     场景本身要交代到笔钱点解会郁 —— 整烂咗所以要赔，慳到所以袋落袋。
+     一句讲唔出点解收/畀嘅卡，就系写错咗。*/
   chance: [
-    { text: '一早开市，人还没到你已到。回到开市格，领 RM200。', move: 0 },
-    { text: '你在网上发了一张河粉照，爆红。收 RM150。', cash: 150 },
-    { text: '桌子摇了三年该修了：每张桌 RM25，每间分店 RM100。', repairs: [25, 100] },
-    { text: '听说香饼刚出炉。直奔淡汶香饼家。', move: 39 },
-    { text: '你插队被抓。去排长龙。', jail: true },
-    { text: '走错巷子，倒退三格。', back: 3 },
-    { text: '你赢了「谁最会吃」比赛。收 RM100。', cash: 100 },
-    { text: '打包三十盒还要加钱：付 RM75。', cash: -75 },
-    { text: '夜市开档了，前往糖水街。', move: 15 },
-    { text: '朋友替你排到位子，前往天津鸡丝河粉。', move: 11 },
-    { text: '你跟一颗椰子单挑，输了：付 RM20。', cash: -20, act: 'attack-melee-right' },
-    { text: '你一脚踢好了茶室的风扇，老板请你吃：收 RM60。', cash: 60, act: 'attack-kick-right' },
-    { text: '你抢到最后一份咖椰角，全场鼓掌：收 RM40。', cash: 40, act: 'interact-right' },
+    { text: '一家人最紧要齐齐整整。返去开市格饮返餐晨早茶，顺手领 RM200。', move: 0 },
+    { text: '你张鸡丝河粉相畀人转发咗一晚，第二日排队排到出街口。收 RM150。', cash: 150 },
+    { text: '发生咁嘅事，大家都唔想嘅——张张枱都摇到食客投诉。每张枱 RM25，每间分店 RM100。', repairs: [25, 100] },
+    { text: '人生有几多个十年，讲咗咁耐话要试天津嘅焦糖炖蛋。今次去埋佢。前往天津茶室。', move: 39 },
+    { text: '你打尖插队，畀后面阿婆嗌到成条街都听到，老板叫你由头排过。去排长龙。', jail: true },
+    { text: '你跟 GPS 转错入单程路，兜返出去嘥咗十分钟。退后三格。', back: 3 },
+    { text: '旅游杂志影你个档做封面，唔使你出一毫子宣传费。收 RM100。', cash: 100 },
+    { text: '有人叫你打包三十盒，走青走辣走鸡，盒仔全部你贴。畀 RM75。', cash: -75 },
+    { text: '你去休罗街搵富山饮茶，先知人哋几十年前搬咗去梁燊南街。前往富山茶楼。', move: 26 },
+    { text: '阿妈打嚟：你饿唔饿？顺路买盒香饼返嚟。前往余合饼家。', move: 11 },
+    { text: '你徒手劈椰青，劈崩咗人哋把刀。赔 RM20。', cash: -20, act: 'attack-melee-right' },
+    { text: '做人呢，最紧要开心。唔谂咁多，去糖水街饮碗糖水先。前往糖水街。', move: 15 },
+    { text: '茶室把风扇卡死，你一脚踢返生，老板即刻请你食碗面。慳返 RM60。', cash: 60, act: 'attack-kick-right' },
+    { text: '你喺奇峰 drive-through 入咗二十杯豆浆，返档口转卖。赚 RM40。', cash: 40, act: 'interact-right' },
+    { text: '你入淡汶香饼时睇到盒底写住昆仑喇叭出品，索性直接同厂入货。慳 RM40。', cash: 40 },
+    { text: '你同人拗怡保啲水靓所以芽菜靓，拗输咗，一围人杯茶你找。畀 RM50。', cash: -50 },
   ],
   ledger: [
-    { text: '你把杯子还了，拿回押金 RM50。', cash: 50 },
-    { text: '姑妈说你瘦了，塞给你 RM100。', cash: 100 },
-    { text: '摊位年费到期：付 RM50。', cash: -50 },
-    { text: '算错帐，多收了你的，退回 RM200。', cash: 200 },
-    { text: '吃太辣看医生：付 RM50。', cash: -50 },
-    { text: '卫生局突击检查：每张桌 RM40，每间分店 RM115。', repairs: [40, 115] },
-    { text: '你占位太久被请走。去排长龙。', jail: true },
-    { text: '回到开市格，再喝一杯。', move: 0 },
-    { text: '油钱补贴下来了：收 RM75。', cash: 75 },
-    { text: '整桌你请：付 RM100。', cash: -100 },
-    { text: '你跟一只蚊子搏斗九分钟，还是输：付 RM30。', cash: -30, act: 'attack-melee-left' },
-    { text: '你踹了一脚停车闸门，它开了，也没人收钱：收 RM80。', cash: 80, act: 'attack-kick-left' },
-    { text: '你手滑打翻整杯白咖啡：付 RM45。', cash: -45, act: 'emote-no' },
+    { text: '你还返啲玻璃杯同箩，攞返按金 RM50。', cash: 50 },
+    { text: '姑妈见你成日一个人食饭，塞咗 RM100 落你袋叫你补返身子。收 RM100。', cash: 100 },
+    { text: '摊位牌照到期，市政局照收唔误。畀 RM50。', cash: -50 },
+    { text: '供应商追住你解释：你听我讲，佢多收咗你一季芽菜钱。退返 RM200。', cash: 200 },
+    { text: '你逞强叫特辣，第二朝去诊所报到。畀 RM50。', cash: -50 },
+    { text: '卫生局突击检查，油烟槽唔合格。每张枱 RM40，每间分店 RM115。', repairs: [40, 115] },
+    { text: '你霸咗张枱两个钟，净系饮一杯白咖啡。老板请你去后面排队。去排长龙。', jail: true },
+    { text: '你排到埋去，老板话：我哋已经尽咗力，今日真系卖晒。返去开市格重新嗌过。', move: 0 },
+    { text: '柴油津贴终于批落嚟，补返你三个月。收 RM75。', cash: 75 },
+    { text: '你一时豪爽话今日我请，全枱即刻加叻沙加烧肉。畀 RM100。', cash: -100 },
+    { text: '你挥苍蝇拍扫跌咗人哋碗猪肠粉，赔返一碗。畀 RM30。', cash: -30, act: 'attack-melee-left' },
+    { text: '泊车闸门卡死，你踢咗一脚佢开返，管理员免咗你今日泊车费。收 RM80。', cash: 80, act: 'attack-kick-left' },
+    { text: '你冚咗成杯白咖啡落人哋条裤，佢一句你从来都冇理过我嘅感受。赔干洗费 RM45。', cash: -45, act: 'emote-no' },
+    { text: '你上石灰山担咗几桶山水返嚟浸粉，慳返成个月水费。收 RM60。', cash: 60, act: 'pick-up' },
+    { text: '你泊咗喺黄线度，咖啡未饮完已经收咗张牛肉干。畀 RM40。', cash: -40 },
+    { text: '客人问你万里望花生系咪万里望种，你照实讲唔系，佢仲要多买两包。收 RM25。', cash: 25 },
   ],
 };
 
@@ -374,7 +385,169 @@ const hustle = {
   ],
 };
 
-export const BOARDS = { ipoh, malaysia, hustle };
+/* ---------------- Pirate Cove ----------------
+   A cursed ship's company, plus three people who washed ashore and have not
+   been told they are not getting home. */
+const PIRATE_GROUPS = [
+  { name: 'The Shallows',   color: 0x8a6a4a, houseCost: 50 },
+  { name: 'Grog Quarter',   color: 0xc4913a, houseCost: 50 },
+  { name: 'Rope & Tar',     color: 0xb5543f, houseCost: 100 },
+  { name: 'The Mangroves',  color: 0x5f8f4a, houseCost: 100 },
+  { name: 'Cursed Reefs',   color: 0x3f9a9a, houseCost: 150 },
+  { name: 'Powder Row',     color: 0x7b5ea8, houseCost: 150 },
+  { name: 'The Deep Berth', color: 0x3b6fa8, houseCost: 200 },
+  { name: "Admiral's Bay",  color: 0x2f3d52, houseCost: 200 },
+];
+
+/* Same rig across every pack, so the whole crew animates. Five are dead, four
+   signed on willingly, and three have no idea how they got here. */
+const PIRATE_CAST = [
+  { url: './assets/crew/graveyard/character-skeleton.glb', name: 'Cap’n Marrow', role: 'still in charge',   line: 'Died. Did not resign.' },
+  { url: './assets/crew/graveyard/character-ghost.glb',    name: 'Old Pale',        role: 'navigator',          line: 'Walks through the chart room, and the chart' },
+  { url: './assets/crew/graveyard/character-zombie.glb',   role: 'ship’s cook', name: 'Gristle',           line: 'Nobody asks what is in the stew' },
+  { url: './assets/crew/graveyard/character-vampire.glb',  name: 'Count Bilge',     role: 'night watch',        line: 'Volunteered for every night watch. Every one.' },
+  { url: './assets/crew/graveyard/character-keeper.glb',   name: 'The Keeper',      role: 'quartermaster',      line: 'Counts the shares twice, aloud, slowly' },
+  { url: './assets/crew/dungeon/character-orc.glb',        name: 'Bosun Grud',      role: 'bosun',              line: 'Settles disputes by ending them' },
+  { url: './assets/crew/dungeon/character-human.glb',      name: 'Honest Bev',      role: 'last honest sailor', line: 'Keeps a receipt for every barrel' },
+  { url: './assets/crew/arena/character-soldier.glb',      name: 'Sgt. Pike',       role: 'changed sides',      line: 'The navy still sends letters' },
+  { url: './assets/crew/forest/character-archer.glb',      name: 'Fen',             role: 'lookout',            line: 'Has never once shouted land' },
+  { url: './assets/crew/skate/character-skate-girl.glb',   name: 'Rilla',           role: 'washed ashore',      line: 'Asked where the nearest ramp is' },
+  { url: './assets/crew/arcade/character-gamer.glb',       name: 'Pixel',           role: 'washed ashore',      line: 'Keeps asking where the save point is' },
+  { url: './assets/crew/market/character-employee.glb',    name: 'Trainee Dev',     role: 'still on contract',  line: 'Believes this counts as a work trip' },
+];
+
+const pirates = {
+  id: 'pirates', name: 'Pirate Cove', blurb: 'A cursed crew, a sinking market, and rent due at high tide.',
+  currency: '¤', groups: PIRATE_GROUPS, cast: PIRATE_CAST,
+  build: {
+    // the kit has no cottages — it is towers, walls and ships — so the ladder is
+    // a stone watchpost growing into a full fort rather than huts into a hotel
+    houses: ['./assets/pirate/tower-base.glb', './assets/pirate/tower-base-door.glb',
+             './assets/pirate/tower-middle-windows.glb'],
+    towers: ['./assets/pirate/tower-complete-large.glb', './assets/pirate/tower-complete-small.glb',
+             './assets/pirate/tower-watch.glb', './assets/pirate/tower-complete-large.glb'],
+    props: ['./assets/pirate/ship-wreck.glb', './assets/pirate/rocks-sand-a.glb',
+            './assets/pirate/rocks-sand-b.glb', './assets/pirate/palm-detailed-straight.glb',
+            './assets/pirate/palm-detailed-bend.glb', './assets/pirate/barrel.glb',
+            './assets/pirate/chest.glb'],
+  },
+  labels: {
+    start: 'High Tide', jail: 'The Brig', rest: 'Shore Leave',
+    chance: 'Ill Winds', ledger: "Ship's Books",
+    house: 'a watchpost', houses: 'watchposts', hotel: 'a fort',
+    jailLine: 'is in the brig, thinking about it.',
+    jailDetail: 'Three turns, or roll doubles and squeeze through the bars.',
+    startDetail: 'The tide came in. So did your share.',
+    taxDetail: 'The harbourmaster does not negotiate.',
+    restLine: 'takes shore leave and regrets it by morning.',
+    visitLine: 'walks past the brig and waves at somebody inside.',
+    winLine: 'owns the whole cove',
+    winSub: 'The rest of the crew is bailing.',
+    buildHint: 'Own every plot of one colour to raise watchposts, then a fort.',
+    buyDetail: 'Unclaimed. Plant a flag or move along.',
+    newsTitle: 'Dockside talk',
+  },
+  centre: 'wreck',
+  tiles: g => [
+    { kind: 'start', name: 'High Tide' },
+    prop(g, 'Barnacle Steps', 0, 60),
+    { kind: 'ledger', name: "Ship's Books" },
+    prop(g, 'Wet Rope Landing', 0, 60),
+    { kind: 'tax', name: 'Harbour Dues', amount: 200 },
+    { kind: 'pier', name: 'The Leaky Ferry', price: 200 },
+    prop(g, 'The Second Barrel', 1, 100),
+    { kind: 'chance', name: 'Ill Winds' },
+    prop(g, 'Two Fingers Tavern', 1, 100),
+    prop(g, 'The Empty Keg', 1, 120),
+    { kind: 'jail', name: 'The Brig' },
+    prop(g, 'Tar Pit Row', 2, 140),
+    { kind: 'works', name: 'The Bilge Pump', price: 150 },
+    prop(g, 'Knot Street', 2, 140),
+    prop(g, 'Sailmaker’s Loft', 2, 160),
+    { kind: 'pier', name: 'The Slow Sloop', price: 200 },
+    prop(g, 'Mosquito Flats', 3, 180),
+    { kind: 'ledger', name: "Ship's Books" },
+    prop(g, 'The Green Water', 3, 180),
+    prop(g, 'Crocodile Crossing', 3, 200),
+    { kind: 'rest', name: 'Shore Leave' },
+    prop(g, 'Widow’s Reef', 4, 220),
+    { kind: 'chance', name: 'Ill Winds' },
+    prop(g, 'The Singing Rocks', 4, 220),
+    prop(g, 'Bones Shoal', 4, 240),
+    { kind: 'pier', name: 'The Borrowed Dinghy', price: 200 },
+    prop(g, 'Powder Store', 5, 260),
+    prop(g, 'The Short Fuse', 5, 260),
+    { kind: 'works', name: 'The Rope Walk', price: 150 },
+    prop(g, 'Cannon Yard', 5, 280),
+    { kind: 'gotojail', name: 'Clapped In Irons' },
+    prop(g, 'The Deep Berth', 6, 300),
+    prop(g, 'Drowned Warehouse', 6, 300),
+    { kind: 'ledger', name: "Ship's Books" },
+    prop(g, 'The Black Jetty', 6, 320),
+    { kind: 'pier', name: 'The Last Packet', price: 200 },
+    { kind: 'chance', name: 'Ill Winds' },
+    prop(g, 'Governor’s Stair', 7, 350),
+    { kind: 'tax', name: 'Letter of Marque', amount: 100 },
+    prop(g, 'Admiral’s Bay', 7, 400),
+  ],
+  chance: [
+    { text: 'The tide turns early. Go to High Tide and collect ¤200.', move: 0 },
+    { text: 'You find a chest. It is mostly sand: collect ¤150.', cash: 150 },
+    { text: 'Storm took the roofs off. Pay ¤25 a watchpost, ¤100 a fort.', repairs: [25, 100] },
+    { text: 'The Governor owes you a favour. Advance to Admiral’s Bay.', move: 39 },
+    { text: 'Caught counting somebody else’s share. Go to the brig.', jail: true },
+    { text: 'You misread the tide table. Back three tiles.', back: 3 },
+    { text: 'Salvage rights come through: collect ¤100.', cash: 100 },
+    { text: 'The parrot ate the map. Buy another: pay ¤75.', cash: -75 },
+    { text: 'The sloop is leaving without you. Advance to The Slow Sloop.', move: 15 },
+    { text: 'Somebody paid your tab at Tar Pit Row. Advance there.', move: 11 },
+    { text: 'You fight the mast. The mast wins: pay ¤20.', cash: -20, act: 'attack-melee-right' },
+    { text: 'You kick a crate and doubloons fall out: collect ¤60.', cash: 60, act: 'attack-kick-right' },
+  ],
+  ledger: [
+    { text: 'You returned the borrowed dinghy: collect ¤50.', cash: 50 },
+    { text: 'An aunt on the mainland still believes in you: collect ¤100.', cash: 100 },
+    { text: 'The cook wants paying. The cook is dead. Pay anyway: ¤50.', cash: -50 },
+    { text: 'Clerical error in the ship’s books. Say nothing. Collect ¤200.', cash: 200 },
+    { text: 'Scurvy. Buy limes: pay ¤50.', cash: -50 },
+    { text: 'Harbour inspection: pay ¤40 a watchpost, ¤115 a fort.', repairs: [40, 115] },
+    { text: 'Your papers do not survive a second reading. Go to the brig.', jail: true },
+    { text: 'Back to High Tide.', move: 0 },
+    { text: 'Your share of the last haul finally clears: collect ¤75.', cash: 75 },
+    { text: 'You were volunteered for the bilge: pay ¤100.', cash: -100 },
+    { text: 'You punch a barrel to make a point. The point is lost: pay ¤30.', cash: -30, act: 'attack-melee-left' },
+    { text: 'You kick the pump and the flooding stops. Hero until supper: collect ¤80.', cash: 80, act: 'attack-kick-left' },
+  ],
+};
+
+/* ---------------- casts ----------------
+   A board may bring its own crew. Each entry carries its own model path, because
+   Kenney ships one colormap per pack and the GLBs reference it relatively — so
+   characters from different packs have to stay in their own folders. Every pack
+   used here shares the same rig and the same clip names (idle, walk, jump,
+   emote-yes, attack-kick-right …), which is what lets them mix at all. */
+
+const MINI_CAST = Array.from({ length: 12 }, (_, i) => ({
+  url: './assets/pieces/char-' + String(i + 1).padStart(2, '0') + '.glb',
+}));
+// names for the default cast live alongside the models they describe
+const MINI_NAMES = [
+  { name: '霞姐',   role: '茶室阿姐',   line: '一手抹桌，一手端茶' },
+  { name: '阿德',   role: '打包大王',   line: '眼镜一戴，排队最快' },
+  { name: '小敏',   role: '晨跑健将',   line: '五点半就绕完一圈' },
+  { name: '光头炳', role: '炒粉师傅',   line: '锅气全靠这双手' },
+  { name: '妮妮',   role: '背包学生',   line: '连帽一拉就去吃' },
+  { name: '阿祥',   role: '交通警',     line: '这条街他说了算' },
+  { name: '慧敏',   role: '写字楼会计', line: '每一分都算得清' },
+  { name: '陈老板', role: '收租佬',     line: '西装笔挺，租金准时' },
+  { name: '阿玲',   role: '夜班护士',   line: '下班第一站是夜市' },
+  { name: '大雄',   role: '工地师傅',   line: '护目镜一戴就开工' },
+  { name: '珍珍',   role: '观光客',     line: '背包塞满伴手礼' },
+  { name: '阿豹',   role: '摩托快递',   line: '巷子窄他更快' },
+];
+export const DEFAULT_CAST = MINI_CAST.map((c, i) => ({ ...c, ...MINI_NAMES[i] }));
+
+export const BOARDS = { ipoh, malaysia, hustle, pirates };
 
 /* ---------------- live exports ---------------- */
 export let BOARD = ipoh;
@@ -384,6 +557,7 @@ export let CHANCE = ipoh.chance;
 export let LEDGER = ipoh.ledger;
 export let LABELS = ipoh.labels;
 export let CURRENCY = ipoh.currency;
+export let CAST = DEFAULT_CAST;
 
 export function setBoard(id) {
   const b = BOARDS[id] || ipoh;
@@ -394,6 +568,7 @@ export function setBoard(id) {
   LEDGER = b.ledger;
   LABELS = b.labels;
   CURRENCY = b.currency;
+  CAST = b.cast || DEFAULT_CAST;
   return b;
 }
 
