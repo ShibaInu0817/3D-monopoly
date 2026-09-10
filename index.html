@@ -6,7 +6,7 @@
 <title>Property Board — 3D</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=M+PLUS+Rounded+1c:wght@500;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script type="importmap">
 {
   "imports": {
@@ -833,6 +833,36 @@
   html[data-board="ipoh"] #mFlow .pchip { font-family: "Noto Sans SC", "Baloo 2", sans-serif; }
   html[data-board="ipoh"] #mFlow .arw { color: #b8452f; }
 
+  /* ---- Sanrio Friends: pastel chrome to match the board's LOOK ---- */
+  html[data-board="sanrio"] {
+    --paper: #fff6fa; --ink: #5b4657; --soft: rgba(91,70,87,0.62);
+    --accent: #e0508a; --good: #3fa07a; --bad: #e0508a; --warn: #e0994a;
+    --menuBg: radial-gradient(120% 90% at 50% 0%, #ffe3ef, #ffd0e3, #f6b3ce);
+  }
+  html[data-board="sanrio"] .lbl, html[data-board="sanrio"] #turnName,
+  html[data-board="sanrio"] .pmeta b, html[data-board="sanrio"] #boardName,
+  html[data-board="sanrio"] .rtile .n, html[data-board="sanrio"] #deedName,
+  html[data-board="sanrio"] #mTitle {
+    font-family: "M PLUS Rounded 1c", "Baloo 2", sans-serif;
+  }
+  html[data-board="sanrio"] #mBadge {
+    background: #e0508a; color: #fff6fa; border: none;
+    font-weight: 800; letter-spacing: 1.5px; border-radius: 999px;
+  }
+  html[data-board="sanrio"] #moment.alert #mBadge { background: #e0994a; }
+  html[data-board="sanrio"] #moment.collect #mBadge { background: #3fa07a; }
+  html[data-board="sanrio"] #mOk { background: #e0508a; color: #fff6fa; }
+  html[data-board="sanrio"] #mDetail { color: #8a6f84; }
+  html[data-board="sanrio"] #mCard { --deckInk: #e0508a; }
+  html[data-board="sanrio"] #moment[data-deck="ledger"] #mCard { --deckInk: #7a5ea8; border-top-color: #7a5ea8; }
+  html[data-board="sanrio"] #mCard[data-flavour="windfall"],
+  html[data-board="sanrio"] #mCard[data-flavour="openStall"]  { --flavourInk: #3fa07a; }
+  html[data-board="sanrio"] #mCard[data-flavour="bill"],
+  html[data-board="sanrio"] #mCard[data-flavour="inspection"] { --flavourInk: #e0508a; }
+  html[data-board="sanrio"] #mCard[data-flavour="wrongTurn"],
+  html[data-board="sanrio"] #mCard[data-flavour="queue"]      { --flavourInk: #e0994a; }
+  html[data-board="sanrio"] #mFlow .arw { color: #e0508a; }
+
   /* the game is over: the bottom band belongs to the win bar and the celebration */
   .hud { transition: opacity .45s ease; }
   body.over .hud { opacity: 0; pointer-events: none; }
@@ -1140,6 +1170,24 @@
             </svg>
           </span>
           <span class="cap"><b>Jalan Malaysia</b><span>Melaka to KLCC, priced in RM</span></span>
+        </button>
+        <button class="bcard" data-pick="board" data-val="sanrio" aria-pressed="false">
+          <span class="art" style="background:linear-gradient(160deg,#ffe3ef,#ffc2da)">
+            <svg viewBox="0 0 120 120" fill="none">
+              <rect x="10" y="10" width="100" height="100" rx="10" fill="#fff5fa" stroke="#d2799f" stroke-width="3"/>
+              <rect x="26" y="26" width="68" height="68" rx="6" fill="#ffeaf3"/>
+              <ellipse cx="60" cy="80" rx="22" ry="6" fill="#f7cfe0"/>
+              <rect x="41" y="58" width="38" height="20" rx="4" fill="#fffafc" stroke="#d2799f" stroke-width="2"/>
+              <rect x="46" y="44" width="28" height="16" rx="4" fill="#fffafc" stroke="#d2799f" stroke-width="2"/>
+              <path d="M41 58h38M46 44h28" stroke="#ff9ec4" stroke-width="4" stroke-linecap="round"/>
+              <circle cx="60" cy="38" r="4" fill="#ff7fa8"/>
+              <g fill="#ff9dba"><rect x="14" y="14" width="18" height="12" rx="3"/><rect x="88" y="94" width="18" height="12" rx="3"/></g>
+              <g fill="#ffd45e"><rect x="36" y="14" width="14" height="12" rx="3"/><rect x="70" y="94" width="14" height="12" rx="3"/></g>
+              <g fill="#7cc3f0"><rect x="14" y="70" width="12" height="16" rx="3"/><rect x="94" y="34" width="12" height="16" rx="3"/></g>
+              <g fill="#b094e0"><rect x="14" y="34" width="12" height="16" rx="3"/><rect x="94" y="70" width="12" height="16" rx="3"/></g>
+            </svg>
+          </span>
+          <span class="cap"><b>Sanrio Friends</b><span>Stars, certificates and one very good hotel</span></span>
         </button>
       </div>
     </div>

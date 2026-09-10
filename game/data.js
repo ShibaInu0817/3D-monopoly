@@ -580,7 +580,145 @@ const MINI_NAMES = [
 ];
 export const DEFAULT_CAST = MINI_CAST.map((c, i) => ({ ...c, ...MINI_NAMES[i] }));
 
-export const BOARDS = { ipoh, malaysia, hustle, pirates };
+/* ---------------- Sanrio ----------------
+   Cloned from MONOPOLY: Hello Kitty and Friends (USAopoly / The Op) wherever the
+   real edition gives us something to copy: houses are Stars and hotels 5-Star
+   Certificates, Chance is Adventures, Community Chest is Parties, and the four
+   railroads are gardens and squares rather than stations. The confirmed property
+   names from that edition are used verbatim; the rest follow its
+   Character’s-Place pattern. */
+const SANRIO_GROUPS = [
+  // pushed well past pastel on purpose — at tile size a soft pink and a soft
+  // peach are the same colour, and a Monopoly board lives on telling sets apart
+  { name: 'Strawberry Lane', color: 0xff9dba, houseCost: 50 },
+  { name: 'Cafe Row',        color: 0xc89a6e, houseCost: 50 },
+  { name: 'Sweet Street',    color: 0xffd45e, houseCost: 100 },
+  { name: 'Playtime Park',   color: 0x7fdcae, houseCost: 100 },
+  { name: 'Melody Market',   color: 0xdd7fc0, houseCost: 150 },
+  { name: 'Ribbon Quarter',  color: 0xffab7d, houseCost: 150 },
+  { name: 'Dream Heights',   color: 0x7cc3f0, houseCost: 200 },
+  { name: 'Star Avenue',     color: 0xb094e0, houseCost: 200 },
+];
+
+/* The cast fills up as characters are converted. Each entry replaces one of the
+   twelve Mini Characters, so the board stays playable at every step:
+       python3 tools/obj2glb.py temp/<Name>/<Name>.obj assets/sanrio/cast/<name>.glb
+   The models carry no skeleton, so `play()` falls through to the procedural clips
+   in board3d rather than an AnimationMixer. */
+const SANRIO_CAST = [
+  { url: './assets/sanrio/cast/kuromi.glb', name: 'Kuromi', role: 'rival',
+    line: 'Keeps a list. You are on it.' },
+];
+
+const sanrio = {
+  id: 'sanrio', name: 'Sanrio Friends',
+  blurb: 'Buy the whole town, one candy shop at a time, and be nice about it.',
+  currency: '♡', groups: SANRIO_GROUPS,
+  cast: SANRIO_CAST.concat(DEFAULT_CAST.slice(SANRIO_CAST.length)),
+  /* Pale pinks all read as white under ACES at exposure 1.05 — the first pass
+     had frame, paper and table within a few percent of each other and the board
+     lost its edge entirely. The frame sits clearly darker than the paper, and
+     the table darker again. */
+  look: {
+    paper: 0xfff0f5, frame: 0xf293b6, table: 0xefb4cd, bg: 0xffdcea,
+    land: 0xbdf0d8, sand: 0xfff2c4, water: 0xbfe6ff,
+    ink: 0x6b5468, white: 0xfffdfd, red: 0xff7fa8, roof: 0xff9ec4, wall: 0xfffafc,
+    brass: 0xffd9a8, trunk: 0xd8a8c8, leaf: 0xa8e6c8, leafDark: 0x86cfa8,
+    tileTop: '#fffdfe', tileBot: '#ffeaf3', tileInk: '#5b4657',
+    tileSub: 'rgba(107,84,104,0.62)', tileEdge: 'rgba(200,120,160,0.30)',
+    accentInk: '#e0508a',
+  },
+  centre: 'cake',
+  labels: {
+    start: 'Friendship Gate', jail: 'Time Out', rest: 'Picnic Spot',
+    chance: 'Adventures', ledger: 'Parties',
+    // the real edition renames the buildings, and the ladder still reads
+    house: 'a star', houses: 'stars', hotel: 'a 5-star certificate',
+    jailLine: 'is in Time Out, thinking about what happened.',
+    jailDetail: 'Three turns, or roll doubles and say sorry properly.',
+    startDetail: 'Everyone is waiting at the gate, and they brought snacks.',
+    taxDetail: 'The ribbon alone costs more than the gift.',
+    restLine: 'stops for a picnic and refuses to be hurried.',
+    visitLine: 'waves at somebody sitting in Time Out.',
+    winLine: 'owns the whole town',
+    winSub: 'Everyone else is very happy for you. Very.',
+    buildHint: 'Own every shop of one colour to add stars, then a 5-star certificate.',
+    buyDetail: 'Nobody owns it yet. Be the first to be nice about it.',
+    newsTitle: 'Town noticeboard',
+  },
+  tiles: g => [
+    { kind: 'start', name: 'Friendship Gate' },
+    prop(g, 'My Melody’s Flower Shop', 0, 60),
+    { kind: 'ledger', name: 'Parties' },
+    prop(g, 'Kuromi’s Candy Shop', 0, 60),
+    { kind: 'tax', name: 'Gift Wrapping Fee', amount: 200 },
+    { kind: 'pier', name: 'Flower Garden', price: 200 },
+    prop(g, 'Cinnamoroll’s Coffee Shop', 1, 100),
+    { kind: 'chance', name: 'Adventures' },
+    prop(g, 'Chococat’s Boba Shop', 1, 100),
+    prop(g, 'Pompompurin’s Diner', 1, 120),
+    { kind: 'jail', name: 'Time Out' },
+    prop(g, 'DokiDoki’s Burger Shack', 2, 140),
+    { kind: 'works', name: 'The Rainbow Fountain', price: 150 },
+    prop(g, 'Keroppi’s Sushi Restaurant', 2, 140),
+    prop(g, 'Gudetama’s Egg Cafe', 2, 160),
+    { kind: 'pier', name: 'Friendship Square', price: 200 },
+    prop(g, 'Badtz-maru’s Arcade', 3, 180),
+    { kind: 'ledger', name: 'Parties' },
+    prop(g, 'Pochacco’s Sports Arena', 3, 180),
+    prop(g, 'Tuxedosam’s Ice Rink', 3, 200),
+    { kind: 'rest', name: 'Picnic Spot' },
+    prop(g, 'Kuromi’s Music Shop', 4, 220),
+    { kind: 'chance', name: 'Adventures' },
+    prop(g, 'My Melody’s Bakery', 4, 220),
+    prop(g, 'Hangyodon’s Aquarium', 4, 240),
+    { kind: 'pier', name: 'Rainbow Harbor', price: 200 },
+    prop(g, 'Hello Kitty’s Ribbon Boutique', 5, 260),
+    prop(g, 'Wish Me Mell’s Post Office', 5, 260),
+    { kind: 'works', name: 'The Wishing Well', price: 150 },
+    prop(g, 'Chococat’s Bookstore', 5, 280),
+    { kind: 'gotojail', name: 'Off To Time Out' },
+    prop(g, 'Little Twin Stars’ Spa', 6, 300),
+    prop(g, 'Cinnamoroll’s Sky Cafe', 6, 300),
+    { kind: 'ledger', name: 'Parties' },
+    prop(g, 'Pekkle’s Duck Pond', 6, 320),
+    { kind: 'pier', name: 'Sunshine Park', price: 200 },
+    { kind: 'chance', name: 'Adventures' },
+    prop(g, 'Little Twin Stars’ Star Tower', 7, 350),
+    { kind: 'tax', name: 'Sparkle Tax', amount: 100 },
+    prop(g, 'Hello Kitty’s Hotel', 7, 400),
+  ],
+  chance: [
+    { text: 'Everyone is waiting at the gate. Go to Friendship Gate. Collect ♡200.', move: 0 },
+    { text: 'You found a four-leaf clover in the flower shop. Collect ♡150.', cash: 150 },
+    { text: 'Redecorating day! Pay ♡25 per star and ♡100 per certificate.', repairs: [25, 100] },
+    { text: 'Hello Kitty saved you a room. Go to Hello Kitty’s Hotel.', move: 39 },
+    { text: 'You ate the last pudding. Straight to Time Out.', jail: true },
+    { text: 'You forgot your ribbon and had to go back for it. Back 3 spaces.', back: 3 },
+    { text: 'You win the friendship contest. Everyone claps. Collect ♡100.', cash: 100 },
+    { text: 'Kuromi sold you concert tickets. They were not hers. Pay ♡75.', cash: -75 },
+    { text: 'The parade is starting! Run to Friendship Square.', move: 15 },
+    { text: 'Badtz-maru saved you a machine. Go to his Arcade.', move: 16 },
+    { text: 'You punched the claw machine. It kept your ♡20.', cash: -20, act: 'attack-melee-right' },
+    { text: 'You kicked the gumball machine. ♡60 fell out. Nobody saw.', cash: 60, act: 'attack-kick-right' },
+  ],
+  ledger: [
+    { text: 'Someone left a gift on your doorstep. Collect ♡50.', cash: 50 },
+    { text: 'Your pen pal finally wrote back, with money in it. Collect ♡100.', cash: 100 },
+    { text: 'You promised to bring cake to the party. Pay ♡50.', cash: -50 },
+    { text: 'You are voted best neighbour. The prize is real. Collect ♡200.', cash: 200 },
+    { text: 'Cinnamoroll spilled coffee on your cushions. He is very sorry. Pay ♡50.', cash: -50 },
+    { text: 'Spring cleaning. Pay ♡40 per star and ♡115 per certificate.', repairs: [40, 115] },
+    { text: 'You took the last slice and blamed the dog. Go to Time Out.', jail: true },
+    { text: 'You are late for the picnic. Go back to Friendship Gate.', move: 0 },
+    { text: 'The bake sale did better than anyone expected. Collect ♡75.', cash: 75 },
+    { text: 'You volunteered to tidy up after the parade. Pay ♡100.', cash: -100 },
+    { text: 'You punched a piñata. It was not that kind of party. Pay ♡30.', cash: -30, act: 'attack-melee-left' },
+    { text: 'You kicked the vending machine. It gave you ♡80 and a snack.', cash: 80, act: 'attack-kick-left' },
+  ],
+};
+
+export const BOARDS = { ipoh, malaysia, hustle, pirates, sanrio };
 
 /* ---------------- live exports ---------------- */
 export let BOARD = ipoh;

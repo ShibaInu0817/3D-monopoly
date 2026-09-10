@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BoardView, makeToken, makeCharacterToken, loadPieces, loadBuildings, makeDie, DIE_UP, LOOK, MATS, TOP, CHARACTERS } from './board3d.js';
+import { BoardView, makeToken, makeCharacterToken, loadPieces, loadBuildings, makeDie, DIE_UP, LOOK, MATS, TOP, CHARACTERS, applyLook } from './board3d.js';
 import * as D from './data.js';
 import * as NET from './net-mqtt.js';
 import { PLAYER_COLORS } from './data.js';
@@ -436,7 +436,7 @@ function frame(now) {
       if (mode === 'overview' && !userDrag) orbit += dt * 0.12;
     if (mode === 'victory') orbit += dt * 0.5;
     board.beacon.rotation.y += dt * 0.6;
-    tokens.forEach(tk => { if (tk.userData.mixer) tk.userData.mixer.update(dt); });
+    tokens.forEach(tk => { if (tk.userData.tick) tk.userData.tick(dt); });
     updateCamera(dt);
     renderer.render(scene, camera);
     stallCheck(now);
@@ -1712,6 +1712,7 @@ async function startGame(resume) {
   try { await loadBuildings(); }
   catch (err) { console.warn('city kit unavailable, using blocks', err); }
   const b = D.setBoard(choice.board);
+  applyLook();                         // board palette, before buildScene reads LOOK
   if (resume) {
     state = resume.state;
   } else {

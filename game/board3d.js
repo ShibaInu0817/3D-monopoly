@@ -1,6 +1,6 @@
 // Miniature-diorama board: geometry, canvas-textured tiles, tokens, buildings.
-// Every colour, light and paper knob comes from LOOK below — one record, fixed
-// at load. There used to be four and a picker to swap them live.
+// Every colour, light and paper knob comes from LOOK below. BASE_LOOK is the
+// default record; a board may override any subset of it through `board.look`.
 import * as THREE from 'three';
 import { TILES, GROUPS, BOARD, CURRENCY, CAST } from './data.js';
 
@@ -11,10 +11,10 @@ export const CORNER = 0.19;
 export const BAND = 0.19;
 export const TW = (HALF * 2 - CORNER * 2) / 9;
 
-/* The one look. `glow` and `tileBg` are gone with the other three records:
+/* The default look. `glow` and `tileBg` are gone with the other three records:
    glow was 0 here so every branch it guarded was dead, and tileBg only ever
    served as a fallback for tileTop/tileBot, which are always present. */
-export const LOOK = Object.freeze({
+const BASE_LOOK = Object.freeze({
   paper: 0xfff4e6, frame: 0xe9a45f, land: 0x9ad588, sand: 0xffe4b0, water: 0x7fd2e6,
   ink: 0x5a463c, white: 0xfffdf7, red: 0xf4715c, roof: 0xf4715c, wall: 0xfffaf1,
   brass: 0xffd07a, trunk: 0xc08a5a, leaf: 0x74c987, leafDark: 0x53ad6b,
@@ -25,6 +25,23 @@ export const LOOK = Object.freeze({
   edgeW: 7, round: 26, pastel: 0.06, grain: 0.09,
   chunk: 1.06,
 });
+
+/* Live and deliberately mutable: materials, lights, fog and the tile canvases all
+   read through this one object, so switching boards is a merge plus a repaint
+   rather than a rebuild. Mutated in place — never reassign it, or every module
+   that imported it keeps pointing at the old record. */
+export const LOOK = { ...BASE_LOOK };
+
+/** Fold the current board's overrides over the defaults and repaint everything
+ *  derived from them. `BOARD` is a live binding, so this reads whichever board
+ *  `setBoard` last selected. Call it after setBoard and before the scene is
+ *  built; `BoardView.rebuildTextures()` covers the case where a board changes
+ *  while a board view already exists. */
+export function applyLook() {
+  for (const k of Object.keys(LOOK)) delete LOOK[k];
+  Object.assign(LOOK, BASE_LOOK, BOARD.look || {});
+  paintMaterials();
+}
 
 const mkMat = (name, keyName, o = {}) => new THREE.MeshStandardMaterial({ name, color: LOOK[keyName], ...o });
 
@@ -416,6 +433,175 @@ export async function loadBuildings() {
   loaded.forEach((g, i) => { if (g) sceneProps.set(extra[i].split('/').pop().replace('.glb', ''), g.scene); });
 }
 
+/* ---------------- puppet: motion for models with no skeleton ----------------
+
+   The Sanrio pieces are game rips: one static mesh, no bones, no clips. But the
+   mesh falls apart into islands that line up with anatomy, and `tools/obj2glb.py`
+   writes those out as named, parented nodes. That is enough to animate — rotate
+   the parts rather than deform them, the way a puppet moves.
+
+   Offsets are fractions of the model's own height so a taller character does not
+   bob further, and the clip names match the ones FLAVOURS and board3d already
+   ask for, so nothing upstream needs to know which kind of piece it has. */
+
+const PUPPET_PARTS = ['body', 'head', 'ear-l', 'ear-r', 'arm-l', 'arm-r', 'foot-l', 'foot-r'];
+
+/* One-shot clips and how long they run. Anything not listed loops. */
+const PUPPET_ONCE = {
+  jump: 0.85, sit: 0.7, 'pick-up': 0.9, die: 1.2,
+  'emote-yes': 0.9, 'emote-no': 0.9,
+  'attack-melee-right': 0.65, 'attack-melee-left': 0.65,
+  'attack-kick-right': 0.65, 'attack-kick-left': 0.65,
+};
+const PUPPET_CLIPS = ['idle', 'walk', 'sprint'].concat(Object.keys(PUPPET_ONCE));
+
+/** Critically-damped-ish spring step. Ears lag whatever the head is doing, and
+ *  that lag is most of what makes a rigid model look alive. */
+function springStep(x, v, target, k, c, dt) {
+  v += ((target - x) * k - v * c) * dt;
+  return [x + v * dt, v];
+}
+
+function makePuppet(model, height) {
+  const P = {};
+  PUPPET_PARTS.forEach(n => { const o = model.getObjectByName(n); if (o) P[n] = o; });
+  if (!P.body) return null;                 // not one of ours; leave it static
+
+  const H = height || 1;
+  const rest = {};
+  Object.keys(P).forEach(n => { rest[n] = P[n].position.clone(); });
+
+  let clip = 'idle', t = 0, ends = 0, then = null;
+  let earX = [0, 0], earVX = [0, 0], earZ = [0, 0], earVZ = [0, 0], prevY = 0;
+
+  function has(name) { return PUPPET_CLIPS.indexOf(name) >= 0; }
+
+  function play(name, opts = {}) {
+    if (!has(name) || name === clip) return;
+    clip = name; t = 0;
+    ends = PUPPET_ONCE[name] || 0;
+    then = opts.then || null;
+  }
+
+  function update(dt) {
+    t += dt;
+    const b = P.body, h = P.head;
+
+    // every clip writes from a clean slate, so they never accumulate
+    Object.keys(P).forEach(n => { P[n].position.copy(rest[n]); P[n].rotation.set(0, 0, 0); });
+
+    const swingArms = a => {
+      if (P['arm-l']) P['arm-l'].rotation.x = a;
+      if (P['arm-r']) P['arm-r'].rotation.x = -a;
+    };
+    const stepFeet = (dz, lift) => {
+      if (P['foot-l']) { P['foot-l'].position.z += dz; P['foot-l'].position.y += Math.max(0, lift); }
+      if (P['foot-r']) { P['foot-r'].position.z -= dz; P['foot-r'].position.y += Math.max(0, -lift); }
+    };
+
+    if (clip === 'walk' || clip === 'sprint') {
+      const fast = clip === 'sprint';
+      const f = t * (fast ? 9.5 : 5.4);
+      const bob = (fast ? 0.034 : 0.019) * H;
+      const lean = fast ? 0.30 : 0.12;
+      const step = (fast ? 0.090 : 0.050) * H;
+      b.position.y += Math.abs(Math.sin(f)) * bob;
+      b.rotation.x = lean;
+      b.rotation.z = Math.sin(f) * (fast ? 0.09 : 0.05);
+      if (h) h.rotation.x = -lean * 0.75 + Math.sin(f * 2) * 0.02;
+      swingArms(Math.sin(f) * (fast ? 0.95 : 0.55));
+      stepFeet(Math.sin(f) * step, Math.sin(f) * step * 0.45);
+
+    } else if (clip === 'jump') {
+      const j = Math.min(1, t / PUPPET_ONCE.jump);
+      const crouch = j < 0.22 ? Math.sin(j / 0.22 * Math.PI) * 0.045 * H : 0;
+      const air = j >= 0.22 ? Math.sin((j - 0.22) / 0.78 * Math.PI) : 0;
+      b.position.y += air * 0.25 * H - crouch;
+      b.rotation.x = -air * 0.16;
+      swingArms(0);
+      if (P['arm-l']) P['arm-l'].rotation.x = -air * 1.5;
+      if (P['arm-r']) P['arm-r'].rotation.x = -air * 1.5;
+      if (h) h.rotation.x = air * 0.12;
+
+    } else if (clip === 'sit') {
+      const k = Math.min(1, t / PUPPET_ONCE.sit);
+      b.position.y -= k * 0.10 * H;
+      b.rotation.x = k * 0.12;
+      swingArms(k * 0.3);
+
+    } else if (clip === 'die') {
+      const k = Math.min(1, t / PUPPET_ONCE.die);
+      b.rotation.x = k * 1.45;                 // straight over backwards
+      b.position.y += Math.sin(k * Math.PI) * 0.05 * H;
+      swingArms(-k * 0.8);
+
+    } else if (clip === 'emote-yes') {
+      if (h) h.rotation.x = Math.sin(t * 11) * 0.30;
+      b.position.y += Math.abs(Math.sin(t * 11)) * 0.012 * H;
+
+    } else if (clip === 'emote-no') {
+      if (h) h.rotation.y = Math.sin(t * 10) * 0.38;
+
+    } else if (clip === 'pick-up') {
+      const k = Math.min(1, t / PUPPET_ONCE['pick-up']);
+      const dip = Math.sin(k * Math.PI);
+      b.rotation.x = dip * 0.55;
+      b.position.y -= dip * 0.06 * H;
+      swingArms(dip * 0.9);
+
+    } else if (clip.indexOf('attack') === 0) {
+      const k = Math.min(1, t / PUPPET_ONCE[clip]);
+      const hit = Math.sin(k * Math.PI);
+      const right = clip.slice(-5) === 'right';
+      const side = right ? 1 : -1;
+      b.rotation.y = hit * 0.35 * side;
+      if (clip.indexOf('kick') >= 0) {
+        const foot = P[right ? 'foot-r' : 'foot-l'];
+        if (foot) { foot.position.z += hit * 0.14 * H; foot.position.y += hit * 0.07 * H; }
+        b.rotation.x = -hit * 0.2;
+      } else {
+        const arm = P[right ? 'arm-r' : 'arm-l'];
+        if (arm) arm.rotation.x = -hit * 1.5;
+        b.rotation.x = hit * 0.18;
+      }
+
+    } else {                                   // idle
+      const f = t * 1.7;
+      b.position.y += Math.sin(f) * 0.009 * H;
+      b.rotation.z = Math.sin(t * 0.85) * 0.014;
+      if (h) { h.rotation.z = Math.sin(t * 0.72) * 0.055; h.rotation.x = Math.sin(f) * 0.030; }
+      swingArms(Math.sin(f) * 0.07);
+    }
+
+    /* Ears trail the body's vertical velocity, so they flick a beat late on
+       every step. Cheapest possible secondary motion, and the thing that stops
+       a rigid mesh reading as a slid-around statue. */
+    const vy = (b.position.y - prevY) / Math.max(dt, 1e-4);
+    prevY = b.position.y;
+    ['ear-l', 'ear-r'].forEach((n, i) => {
+      const ear = P[n];
+      if (!ear) return;
+      const side = i === 0 ? -1 : 1;
+      const hx = h ? h.rotation.x : 0, hz = h ? h.rotation.z : 0;
+      const tx = THREE.MathUtils.clamp(-vy / H * 0.55, -0.75, 0.75) - hx * 0.6;
+      const tz = (-hz * 0.9 + THREE.MathUtils.clamp(-vy / H * 0.12, -0.2, 0.2)) * side;
+      [earX[i], earVX[i]] = springStep(earX[i], earVX[i], tx, 150, 13, dt);
+      [earZ[i], earVZ[i]] = springStep(earZ[i], earVZ[i], tz, 110, 12, dt);
+      ear.rotation.x = earX[i];
+      ear.rotation.z = earZ[i];
+    });
+
+    if (ends && t >= ends) {
+      const nxt = then || 'idle';
+      then = null; ends = 0;
+      clip = null;                             // so play() does not bail on ===
+      play(nxt);
+    }
+  }
+
+  return { play, update, clips: PUPPET_CLIPS, has };
+}
+
 const CLIP_LOOP = { idle: true, walk: true, sprint: true, sit: false, crouch: false, die: false };
 
 /** character piece on a coloured plinth, rigged and normalised to a fixed height */
@@ -455,9 +641,12 @@ export function makeCharacterToken(hex, name, index) {
     actions[clip.name] = a;
   });
 
+  let puppet = null;                  // set below, once the model is measured
   let current = null;
   function play(clipName, { fade = 0.16, then = null } = {}) {
     const next = actions[clipName];
+    // a rigless piece has no actions at all, so the puppet answers instead
+    if (!next && puppet) return puppet.play(clipName, { then });
     if (!next || next === current) return;
     if (current) current.fadeOut(fade);
     next.reset().fadeIn(fade).play();
@@ -482,12 +671,21 @@ export function makeCharacterToken(hex, name, index) {
   model.position.set(-((box.min.x + box.max.x) / 2) * s, 0.008 - box.min.y * s, -((box.min.z + box.max.z) / 2) * s);
   g.add(model);
 
+  // a model with no clips is a game rip, not a broken import — drive its named
+  // parts directly. size.y is in the model's own units, which is what the
+  // puppet scales its offsets against.
+  if (!proto.clips.length) puppet = makePuppet(model, size.y);
+
   play('idle', { fade: 0 });
 
   g.userData.material = plinthMat;
   g.userData.model = model;
   g.userData.mixer = mixer;
+  g.userData.puppet = puppet;
+  g.userData.clips = puppet ? puppet.clips : proto.clips.map(c => c.name);
   g.userData.play = play;
+  /** Advance whichever kind of animation this piece has. */
+  g.userData.tick = dt => { mixer.update(dt); if (puppet) puppet.update(dt); };
   g.userData.pieceHeight = size.y * s;
   return g;
 }
@@ -590,6 +788,52 @@ function makeTower(name) {
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.012, 24), MATS.wall);
   base.name = name + '_base'; base.position.y = 0.006; base.castShadow = true;
   g.add(base, shaft, pod, ring, spire);
+  return g;
+}
+
+/** Three tiers, piped cream and too many strawberries. Procedural like the
+ *  lighthouse and the tower — the Food Kit would do it too, but a cake is a
+ *  stack of cylinders and this way the board needs no extra download. */
+function makeCake(name) {
+  const g = new THREE.Group();
+  g.name = name;
+
+  const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.049, 0.005, 40), MATS.white);
+  plate.name = name + '_plate'; plate.position.y = 0.0025;
+  plate.castShadow = true; plate.receiveShadow = true;
+  g.add(plate);
+
+  // [radius, height, base y] — each tier sits on the icing of the one below
+  const tiers = [[0.037, 0.030, 0.005], [0.027, 0.026, 0.043], [0.018, 0.022, 0.076]];
+  tiers.forEach(([r, h, y], i) => {
+    const sponge = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 32), MATS.wall);
+    sponge.name = name + '_tier' + i; sponge.position.y = y + h / 2; sponge.castShadow = true;
+    const icing = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.0015, r + 0.0015, 0.008, 32), MATS.roof);
+    icing.name = name + '_icing' + i; icing.position.y = y + h; icing.castShadow = true;
+    g.add(sponge, icing);
+
+    // strawberries round the rim, and a dot of cream between each pair
+    const n = 8 - i * 2;
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2 + i * 0.4;
+      const berry = new THREE.Mesh(new THREE.SphereGeometry(0.0055, 12, 10), MATS.red);
+      berry.name = name + '_berry' + i + '_' + k;
+      berry.position.set(Math.cos(a) * r, y + h + 0.006, Math.sin(a) * r);
+      berry.scale.set(1, 1.25, 1);
+      berry.castShadow = true;
+      const cream = new THREE.Mesh(new THREE.SphereGeometry(0.004, 10, 8), MATS.white);
+      const b = a + Math.PI / n;
+      cream.name = name + '_cream' + i + '_' + k;
+      cream.position.set(Math.cos(b) * r, y + h + 0.005, Math.sin(b) * r);
+      g.add(berry, cream);
+    }
+  });
+
+  const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.0028, 0.0028, 0.022, 12), MATS.red);
+  candle.name = name + '_candle'; candle.position.y = 0.109; candle.castShadow = true;
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.0045, 0.011, 10), MATS.brass);
+  flame.name = name + '_flame'; flame.position.y = 0.1255;
+  g.add(candle, flame);
   return g;
 }
 
@@ -739,13 +983,17 @@ export class BoardView {
       : BOARD.centre === 'wreck' ? makeWreck('centre_wreck')
       : BOARD.centre === 'tower' ? makeTower('centre_tower')
       : BOARD.centre === 'crystal' ? makeCrystal('centre_crystal')
+      : BOARD.centre === 'cake' ? makeCake('centre_cake')
       : makeLighthouse('centre_lighthouse');
     // a town and a wreck both fill the middle: centred, and they must not turn
     const wide = BOARD.centre === 'skyline' || BOARD.centre === 'wreck';
+    // a cake is round, so it sits centred like those two but still turns — a
+    // slowly revolving cake is the whole point of putting one there
+    const centred = wide || BOARD.centre === 'cake';
     centre.scale.setScalar(BOARD.centre === 'skyline' ? 1.7
       : BOARD.centre === 'wreck' ? 1.45
       : BOARD.centre === 'lighthouse' ? 1.7 : 1.5);
-    centre.position.set(wide ? 0 : -0.03, TOP + 0.016, wide ? 0 : -0.02);
+    centre.position.set(centred ? 0 : -0.03, TOP + 0.016, centred ? 0 : -0.02);
     G.add(centre);
     // the render loop slowly spins the beacon; a town or a beached hull must not
     // spin, so it gets an empty stand-in instead
@@ -818,7 +1066,7 @@ export class BoardView {
 
   /** A restored WebGL context has lost every GPU copy. The canvases and the
    *  procedural maps live on the JS side, so regenerating them puts the board
-   *  back. Nothing else calls this — the look never changes at runtime. */
+   *  back. Also the repaint path when `applyLook` runs against a live board. */
   rebuildTextures() {
     paintMaterials();
     for (let i = 0; i < 40; i++) {

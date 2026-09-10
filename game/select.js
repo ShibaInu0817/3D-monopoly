@@ -127,7 +127,7 @@ function frame(now) {
     piece.rotation.y = spin;
     piece.scale.setScalar(1.75 * (0.86 + 0.16 * e - 0.02 * Math.sin(e * Math.PI)));
     piece.position.set((1 - e) * 0.05 * -dir, (1 - e) * 0.02, 0);
-    if (piece.userData.mixer) piece.userData.mixer.update(dt);
+    if (piece.userData.tick) piece.userData.tick(dt);
   }
   disc.rotation.y = -spin * 0.2;
   if (glowMat) glowMat.opacity = 0.12 + 0.08 * Math.sin(now / 700);

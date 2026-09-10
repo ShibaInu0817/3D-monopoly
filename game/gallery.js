@@ -87,7 +87,7 @@ function frame(now) {
   if (drag === null) spin += dt * 0.35;
   if (piece) {
     piece.rotation.y = spin;
-    if (piece.userData.mixer) piece.userData.mixer.update(dt);
+    if (piece.userData.tick) piece.userData.tick(dt);
   }
   const r = 0.3;
   camera.position.set(Math.sin(0) * r, 0.13, r);
@@ -102,8 +102,8 @@ function setPiece(i) {
   piece = makeCharacterToken(PLAYER_COLORS[i % 4].hex, 'gallery_piece', i);
   piece.scale.setScalar(1.9);
   stage.add(piece);
-  clipNames = [];
-  piece.userData.mixer._actions.forEach(a => clipNames.push(a._clip.name));
+  // a rigless piece reports the puppet's clip names instead of the mixer's
+  clipNames = (piece.userData.clips || []).slice();
   play(current);
   document.querySelectorAll('#galPieces button').forEach((b, n) =>
     b.setAttribute('aria-pressed', String(n === i)));

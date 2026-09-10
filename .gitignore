@@ -2,6 +2,7 @@
 # anything pasted into a chat session do not belong in the repo.
 uploads/
 *.zip
+temp/
 
 # Claude Design / artifact scratch
 *.dc.html
