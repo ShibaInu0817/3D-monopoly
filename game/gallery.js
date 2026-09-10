@@ -1,8 +1,12 @@
 // Menu gallery: preview every piece, every animation clip, and every card reaction.
 import * as THREE from 'three';
-import { loadPieces, makeCharacterToken, MATS } from './board3d.js';
-import { BOARDS, PLAYER_COLORS, cardFlavour } from './data.js';
+import { loadPieces, makeCharacterToken, MATS, CHARACTERS, applyLook } from './board3d.js';
+import { BOARDS, PLAYER_COLORS, cardFlavour, setBoard } from './data.js';
 
+/* The Kenney rig's 32 clips, grouped. A board may bring pieces with a different
+   set — the Sanrio rips have no skeleton at all and are driven by the puppet's
+   thirteen — so this is the preferred *order*, not the list. renderClips filters
+   it against whatever the selected piece can actually play. */
 const CLIP_GROUPS = [
   ['Locomotion', ['idle', 'walk', 'sprint', 'jump', 'fall', 'static']],
   ['Postures', ['crouch', 'sit', 'drive', 'die']],
@@ -104,9 +108,38 @@ function setPiece(i) {
   stage.add(piece);
   // a rigless piece reports the puppet's clip names instead of the mixer's
   clipNames = (piece.userData.clips || []).slice();
+  // the clip buttons depend on the piece, so they are rebuilt with it
+  if (!clipNames.includes(current)) current = clipNames[0] || 'idle';
+  renderClips();
   play(current);
   document.querySelectorAll('#galPieces button').forEach((b, n) =>
     b.setAttribute('aria-pressed', String(n === i)));
+}
+
+/** One button per character in the board's cast, named the way the select
+ *  screen names them. There used to be four, hard-coded, for a cast of twelve. */
+function renderPieces() {
+  $('galPieces').innerHTML = CHARACTERS.map((c, i) =>
+    `<button data-piece="${i}" aria-pressed="${i === pieceIndex}">` +
+    `<span class="sw" style="background:${PLAYER_COLORS[i % 4].css}"></span>${c.name}</button>`).join('');
+}
+
+/** Swap the whole gallery to a board: its crew, its palette and its cards. The
+ *  tabs used to change only the cards, so picking Pirate Cove showed the pirate
+ *  deck beside whichever crew happened to be loaded. */
+async function selectBoard(id) {
+  boardId = id;
+  setBoard(id);
+  applyLook();                       // the gallery floor is MATS.table
+  renderBoardTabs();
+  renderCards();
+  $('galPreview').hidden = true;
+  $('galStatus').textContent = 'Loading pieces…';
+  await loadPieces();
+  pieceIndex = 0;
+  renderPieces();
+  setPiece(0);
+  $('galStatus').textContent = 'Drag to spin · Esc to close';
 }
 
 function play(name) {
@@ -119,7 +152,15 @@ function play(name) {
 }
 
 function renderClips() {
-  $('galClips').innerHTML = CLIP_GROUPS.map(([title, list]) => `
+  const have = new Set(clipNames);
+  const groups = CLIP_GROUPS
+    .map(([title, list]) => [title, list.filter(c => have.has(c))])
+    .filter(([, list]) => list.length);
+  // anything the piece can play that the Kenney grouping never knew about
+  const grouped = new Set(groups.flatMap(([, list]) => list));
+  const rest = clipNames.filter(c => !grouped.has(c));
+  if (rest.length) groups.push(['Other', rest]);
+  $('galClips').innerHTML = groups.map(([title, list]) => `
     <div class="galGroup">
       <span class="lbl">${title}</span>
       <div class="galRow">${list.map(c =>
@@ -162,12 +203,14 @@ export async function openGallery(board) {
   nextFrame(() => el.classList.add('on'));
   if (!ready) {
     $('galStatus').textContent = 'Loading pieces…';
+    setBoard(boardId);
+    applyLook();
     await loadPieces();
     buildStage();
-    renderClips();
     renderBoardTabs();
     renderCards();
-    setPiece(0);
+    renderPieces();
+    setPiece(0);                     // renders the clip list for this piece
     fit();
     nextFrame(frame);
     addEventListener('resize', fit);
@@ -188,11 +231,7 @@ export async function openGallery(board) {
     });
     $('galBoards').addEventListener('click', e => {
       const b = e.target.closest('button');
-      if (!b) return;
-      boardId = b.dataset.board;
-      renderBoardTabs();
-      renderCards();
-      $('galPreview').hidden = true;
+      if (b) selectBoard(b.dataset.board);
     });
     $('galPieces').addEventListener('click', e => {
       const b = e.target.closest('button');
@@ -205,8 +244,7 @@ export async function openGallery(board) {
     ready = true;
     $('galStatus').textContent = 'Drag to spin · Esc to close';
   }
-  renderBoardTabs();
-  renderCards();
+  else if (board && BOARDS[board]) await selectBoard(board);
   fit();
 }
 
