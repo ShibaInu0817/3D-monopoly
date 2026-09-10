@@ -6,7 +6,7 @@
 //   room    — one device, one seat, on a clock, with everyone else's picks
 //             arriving live from the host (pickInRoom + castUpdate)
 import * as THREE from 'three';
-import { loadPiece, prefetchPieces, pieceReady, makeCharacterToken, CHARACTERS, THEMES, applyMaterialTheme } from './board3d.js';
+import { loadPiece, prefetchPieces, pieceReady, makeCharacterToken, CHARACTERS } from './board3d.js';
 import { PLAYER_COLORS } from './data.js';
 
 const $ = id => document.getElementById(id);
@@ -333,7 +333,7 @@ export function fillRandom(chars, seats) {
 
 /** Shared opening: the screen is complete and interactive before any model has
  *  downloaded, so nobody waits on the network to start choosing. */
-function openScreen(look) {
+function openScreen() {
   const el = $('charSelect');
   el.hidden = false;
   el.classList.add('on');
@@ -341,7 +341,6 @@ function openScreen(look) {
   el.classList.remove('csHurry');
   wire();
   idx = 0; dir = 1; gen = 0;
-  if (look && THEMES[look]) applyMaterialTheme();
   buildStage();
   sizeW = sizeH = 0;
   fit();
@@ -356,20 +355,20 @@ function openScreen(look) {
 
 /** One device, one seat after another. `seats` is the human seats only — bots
  *  take what is left afterwards rather than a slot in the queue. */
-export async function pickCharacters(players, look, seats) {
+export async function pickCharacters(players, seats) {
   total = players;
   mySeats = (seats && seats.length ? seats : Array.from({ length: players }, (_, i) => i)).slice();
   inRoom = false; locked = false;
   seat = mySeats[0];
   taken = new Array(players).fill(-1);
   picks = new Array(players).fill(-1);
-  openScreen(look);
+  openScreen();
   return new Promise(res => { resolveAll = res; });
 }
 
 /** One device, one seat, on a clock, with everyone else's picks arriving from
  *  the host. `onPick` fires on each confirm — a lost race lets it fire again. */
-export async function pickInRoom({ seat: mySeat, total: players, look, onPick }) {
+export async function pickInRoom({ seat: mySeat, total: players, onPick }) {
   total = players;
   mySeats = [mySeat];
   inRoom = true; locked = false; bumpNote = ''; myClaim = -1;
@@ -380,7 +379,7 @@ export async function pickInRoom({ seat: mySeat, total: players, look, onPick })
   endsAt = Date.now() + 30000;   // replaced by the host's clock on the first cast
   clearInterval(tick);
   tick = setInterval(() => { if (inRoom && running) paintClock(); }, 250);
-  openScreen(look);
+  openScreen();
 }
 
 /** The host's live board. Repaints who holds what, and if my claim lost the race

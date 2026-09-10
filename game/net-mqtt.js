@@ -30,7 +30,7 @@ const BROKERS = [
 // Bumped whenever the wire format changes. Both pages are served from a CDN that
 // caches for 10 minutes, so one device can easily be a version behind the other;
 // without this the mismatch is silent and the join just never completes.
-export const BUILD = 'mqtt-2';   // cast/pick added, players on the wire
+export const BUILD = 'mqtt-3';   // one look only: `choice` no longer carries a style
 const PREFIX = 'ipohmono/room/';
 const JOIN_MS = 12000;      // how long a guest waits for the host to answer
 const DIAL_MS = 7000;       // per-broker connect budget before trying the next

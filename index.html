@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="clay" data-board="isla">
+<html lang="en" data-board="isla">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -31,7 +31,7 @@
 }
 </script>
 <style>
-  html[data-theme="clay"] {
+  :root {
     --paper: #fff6ea; --ink: #4a382f; --soft: rgba(74,56,47,0.6);
     --line: rgba(90,70,60,0.16); --panel: rgba(255,246,234,0.95);
     --accent: #f4715c; --good: #45a86a; --bad: #e2503f; --warn: #e9a13b;
@@ -39,37 +39,22 @@
     --lift: 0 10px 0 rgba(120,92,74,0.16); --lift-sm: 0 6px 0 rgba(120,92,74,0.14);
     --edge: 2px solid rgba(90,70,60,0.14);
     --menuBg: radial-gradient(120% 90% at 50% 0%, #ffe3bd 0%, #ffd5b0 45%, #f6b98f 100%);
-  }
-  html[data-theme="paper"] {
-    --paper: #f6f2e9; --ink: #22201c; --soft: rgba(34,32,28,0.6);
-    --line: rgba(34,32,28,0.14); --panel: rgba(246,242,233,0.93);
-    --accent: #2f6f9e; --good: #4f8a55; --bad: #c9503f; --warn: #b8853a;
-    --r: 13px; --r-sm: 10px;
-    --lift: 0 10px 26px rgba(20,30,28,0.14); --lift-sm: 0 6px 16px rgba(20,30,28,0.1);
-    --edge: 1px solid rgba(34,32,28,0.14);
-    --menuBg: radial-gradient(120% 90% at 50% 0%, #eef0e8 0%, #dfe7e4 50%, #c6d2cc 100%);
-  }
-  html[data-theme="arcane"] {
-    --paper: #221e42; --ink: #f4ead0; --soft: rgba(244,234,208,0.6);
-    --line: rgba(232,196,119,0.3); --panel: rgba(34,30,66,0.9);
-    --accent: #e8c477; --good: #63b58a; --bad: #d9634f; --warn: #e8c477;
-    --r: 18px; --r-sm: 12px;
-    --lift: 0 0 0 1px rgba(232,196,119,0.22), 0 18px 44px rgba(0,0,0,0.6);
-    --lift-sm: 0 0 0 1px rgba(232,196,119,0.18), 0 8px 22px rgba(0,0,0,0.5);
-    --edge: 1.5px solid rgba(232,196,119,0.34);
-    --menuBg: radial-gradient(120% 90% at 50% 0%, #3b3168 0%, #221e42 48%, #0e0c22 100%);
-  }
-  html[data-theme="neon"] {
-    --paper: #111726; --ink: #e9f5ff; --soft: rgba(233,245,255,0.62);
-    --line: rgba(140,200,255,0.22); --panel: rgba(15,21,35,0.88);
-    --accent: #14e0c8; --good: #2fe08a; --bad: #ff5c8a; --warn: #ffd36e;
-    --r: 16px; --r-sm: 12px;
-    --lift: 0 0 0 1px rgba(120,220,255,0.18), 0 16px 40px rgba(0,0,0,0.55);
-    --lift-sm: 0 0 0 1px rgba(120,220,255,0.14), 0 8px 20px rgba(0,0,0,0.5);
-    --edge: 1px solid rgba(140,200,255,0.28);
-    --menuBg: radial-gradient(120% 90% at 50% 0%, #1a2440 0%, #0d1424 50%, #05080f 100%);
-  }
 
+    /* One 4px spacing scale. Everything in the HUD picks from these rather than
+       inventing a value, which is how 3/5/6/7/8px gaps accumulated before. */
+    --s1: 4px;    /* inside a control  */
+    --s2: 8px;    /* between siblings  */
+    --s3: 12px;   /* between groups    */
+    --s4: 16px;   /* panel padding     */
+    --gut: 20px;  /* screen edge       */
+
+    /* The bottom-right cluster. Giving the readout a min-width makes the dock's
+       width a fact rather than a guess, so #actions can be placed beside it by
+       arithmetic instead of the hand-counted `right: 293px` it used to carry. */
+    --rollD: 132px;
+    --diceW: 104px;
+    --dockW: calc(var(--diceW) + var(--s3) + var(--rollD));
+  }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: var(--paper); color: var(--ink);
     font: 500 14px/1.45 "Baloo 2", "Helvetica Neue", Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
@@ -120,10 +105,6 @@
     transition: transform .16s cubic-bezier(.2,1.5,.4,1); display: flex; align-items: center; gap: 9px; }
   .pill:hover { transform: translateY(-2px); }
   .pill[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-  .pill .dots { display: flex; }
-  .pill .dots i { width: 11px; height: 11px; border-radius: 50%; margin-left: -4px; border: 2px solid var(--panel); }
-  .pill .dots i:first-child { margin-left: 0; }
-  .pill[aria-pressed="true"] .dots i { border-color: var(--ink); }
   #btnResume { display: grid; gap: 3px; width: 100%; margin-bottom: 12px; padding: 13px 18px;
     border-radius: var(--r); border: var(--edge); background: transparent; color: var(--ink);
     cursor: pointer; text-align: left; font-family: inherit; }
@@ -163,10 +144,10 @@
     font-family: inherit; cursor: pointer; }
   #galBoards button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
   .galCard.flat b { color: var(--soft); }
-  #galPieces, #galLooks { display: flex; gap: 6px; flex-wrap: wrap; }
-  #galPieces button, #galLooks button { padding: 8px 12px; border-radius: 999px; border: var(--edge);
+  #galPieces { display: flex; gap: 6px; flex-wrap: wrap; }
+  #galPieces button { padding: 8px 12px; border-radius: 999px; border: var(--edge);
     background: transparent; color: var(--ink); font-size: 12px; font-weight: 700; cursor: pointer; }
-  #galPieces button[aria-pressed="true"], #galLooks button[aria-pressed="true"] {
+  #galPieces button[aria-pressed="true"] {
     background: var(--ink); color: var(--paper); border-color: var(--ink); }
   #galPieces .sw { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
   .galRight { padding: 20px 22px; min-height: 0; overflow-y: auto; display: grid; gap: 18px; align-content: start; }
@@ -234,7 +215,9 @@
     .bcard .cap b { font-size: 14px; }
     .bcard .cap span { font-size: 10.5px; }
     .row.opts { grid-template-columns: 1fr 1fr; gap: 12px; }
-    .row.opts .col:nth-child(2) { grid-column: 1 / -1; }
+    /* Online is the widest control (Create room + code field + Join) and is now
+       the third column; give it the full width so it stops wrapping */
+    .row.opts .col:nth-child(3) { grid-column: 1 / -1; }
     .pill { padding: 8px 13px; font-size: 12.5px; }
     .startRow { flex-wrap: wrap; gap: 10px; }
     #menuBlurb { max-width: none; flex-basis: 100%; order: -1; font-size: 12px; }
@@ -261,7 +244,7 @@
   .panel { background: var(--panel); backdrop-filter: blur(10px); border: var(--edge);
     border-radius: var(--r); box-shadow: var(--lift); }
 
-  #turn { top: 20px; left: 20px; padding: 15px 20px 16px; min-width: 214px; }
+  #turn { top: var(--gut); left: var(--gut); padding: var(--s4) var(--gut); min-width: 214px; }
   #turn h1 { margin: 2px 0 0; font-size: 30px; font-weight: 800; line-height: 1.05;
     display: flex; align-items: center; gap: 10px; }
   #turnDot { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 4px rgba(255,255,255,0.3); }
@@ -285,7 +268,7 @@
     font-size: 8.5px; font-weight: 800; letter-spacing: 0.08em; margin-left: 5px; vertical-align: 1px; }
   .pmeta span em { font-style: normal; font-weight: 700; color: var(--warn); }
 
-  #players { top: 158px; left: 20px; width: 246px; display: grid; gap: 9px; }
+  #players { top: 158px; left: var(--gut); width: 246px; display: grid; gap: var(--s2); }
   .pcard { display: grid; grid-template-columns: 16px 1fr auto; align-items: center; gap: 11px;
     padding: 11px 14px; background: var(--panel); border: var(--edge); border-radius: var(--r-sm);
     box-shadow: var(--lift-sm); transition: transform .22s cubic-bezier(.2,1.4,.4,1); }
@@ -300,18 +283,6 @@
   .pcash.flash-down { animation: cashDown .7s ease; color: var(--bad); }
   @keyframes cashUp { 0%{transform:scale(1)} 30%{transform:scale(1.28)} 100%{transform:scale(1)} }
   @keyframes cashDown { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 45%{transform:translateX(5px)} 70%{transform:translateX(-3px)} }
-
-  #styles { top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; padding: 7px; align-items: center; }
-  #styles .cap { padding: 0 8px 0 6px; }
-  .sbtn { display: flex; align-items: center; gap: 8px; padding: 9px 14px 9px 11px; border-radius: 999px;
-    border: var(--edge); background: transparent; color: var(--ink); cursor: pointer; font-size: 13px; font-weight: 700;
-    transition: transform .16s cubic-bezier(.2,1.5,.4,1); }
-  .sbtn:hover { transform: translateY(-2px); }
-  .sbtn .dots { display: flex; }
-  .sbtn .dots i { width: 11px; height: 11px; border-radius: 50%; margin-left: -4px; border: 2px solid var(--panel); }
-  .sbtn .dots i:first-child { margin-left: 0; }
-  .sbtn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-  .sbtn[aria-pressed="true"] .dots i { border-color: var(--ink); }
 
   #logWrap { top: 96px; right: 20px; width: 282px; padding: 14px 17px 16px; }
   #log { list-style: none; margin: 9px 0 0; padding: 0; display: grid; gap: 8px; }
@@ -354,15 +325,16 @@
   .cheatLock input { width: 15px; height: 15px; accent-color: var(--ink); cursor: pointer; }
 
   /* the roll control, bottom right */
-  #rollDock { bottom: 152px; right: 20px; display: flex; align-items: flex-end; gap: 14px; }
-  #diceRead { display: grid; gap: 7px; justify-items: center; padding: 12px 14px; }
+  #rollDock { bottom: 152px; right: var(--gut); display: flex; align-items: flex-end; gap: var(--s3); }
+  #diceRead { display: grid; gap: var(--s1); justify-items: center; padding: var(--s3);
+    min-width: var(--diceW); }
   #diceRead .faces { display: flex; gap: 7px; }
   #diceRead .face { width: 34px; height: 34px; border-radius: 9px; background: var(--panel);
     border: var(--edge); display: grid; place-items: center; box-shadow: var(--lift-sm); }
   #diceRead .face svg { width: 26px; height: 26px; fill: var(--ink); }
   #diceRead .total { font-size: 12px; font-weight: 700; color: var(--soft); }
   #diceRead .total b { color: var(--ink); font-size: 15px; }
-  #btnRoll { position: relative; width: 132px; height: 132px; border-radius: 50%; border: none; cursor: pointer;
+  #btnRoll { position: relative; width: var(--rollD); height: var(--rollD); border-radius: 50%; border: none; cursor: pointer;
     background: var(--ink); color: var(--paper); box-shadow: 0 12px 0 color-mix(in oklab, var(--ink) 62%, transparent),
     0 20px 40px rgba(0,0,0,0.24); display: grid; place-items: center; gap: 2px;
     transition: transform .14s cubic-bezier(.2,1.6,.4,1), box-shadow .14s; }
@@ -378,8 +350,10 @@
     border: 3px solid var(--accent); animation: pulse 1.7s ease-out infinite; }
   @keyframes pulse { 0% { transform: scale(0.94); opacity: 0.9 } 70% { transform: scale(1.14); opacity: 0 } 100% { opacity: 0 } }
 
-  #actions { bottom: 152px; right: 293px; display: flex; align-items: center; gap: 9px; padding: 11px 13px; }
-  button.act { font-size: 14px; font-weight: 700; padding: 13px 20px; border-radius: var(--r-sm);
+  /* sits immediately left of the dock — derived, so it follows the dock's size */
+  #actions { bottom: 152px; right: calc(var(--gut) + var(--dockW) + var(--gut));
+    display: flex; align-items: center; gap: var(--s2); padding: var(--s3); }
+  button.act { font-size: 14px; font-weight: 700; padding: var(--s3) var(--gut); border-radius: var(--r-sm);
     border: var(--edge); background: var(--panel); color: var(--ink); cursor: pointer;
     transition: transform .14s cubic-bezier(.2,1.5,.4,1); }
   button.act:hover:not(:disabled) { transform: translateY(-2px); }
@@ -878,18 +852,10 @@
 
 
 
-  /* below ~1000px the centred style bar would collide with the turn card:
-     dock it under the turn card on the left instead */
   @media (max-height: 760px) and (min-width: 721px) {
     #players { grid-template-columns: 1fr 1fr; width: 300px; }
     .pcard { grid-template-columns: 12px 1fr; padding: 8px 10px; gap: 8px; }
     .pcash { grid-column: 2; }
-  }
-  @media (max-width: 1000px) {
-    #styles { top: 160px; left: 20px; transform: none; max-width: 246px; padding: 5px; }
-    #styles .cap { display: none; }
-    #styles .sbtn { font-size: 0; padding: 7px 9px; gap: 0; }
-    #players { top: 216px; }
   }
   /* 721–860px: keep the dock a row and hold the action bar clear of it.
      (Written for the old bottom:24px dock; the anchors now match the reworked band.) */
@@ -906,10 +872,13 @@
   }
   /* the tab row only exists on phones; desktop keeps every panel pinned */
   #tabs { display: none; }
-  .tab { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 15px; border-radius: 999px;
+  .tab { display: flex; align-items: center; justify-content: center; gap: var(--s2); min-height: 44px; padding: var(--s2) var(--s4); border-radius: 999px;
     border: var(--edge); background: var(--panel); backdrop-filter: blur(10px); color: var(--ink);
     box-shadow: var(--lift-sm); font: 700 12.5px/1 inherit; font-family: inherit; cursor: pointer;
     transition: transform .16s cubic-bezier(.2,1.5,.4,1); }
+  /* `display: flex` above beats the UA sheet's [hidden] rule, so say it here or
+     the cheat chip ships to every player: visible, inert and holding a slot. */
+  .tab[hidden] { display: none !important; }
   .tab b { font-weight: 800; font-size: 10.5px; color: var(--soft); }
   .tab[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
   .tab[aria-pressed="true"] b { color: var(--paper); opacity: 0.7; }
@@ -940,24 +909,35 @@
 
   /* ---------- phones (narrow OR short: landscape phones are short-and-wide) ---------- */
   @media (max-width: 720px), (max-height: 520px) {
-    .hud { --gut: 12px; }
-    #turn { top: calc(env(safe-area-inset-top, 0px) + 12px); left: 12px; right: 12px;
-      min-width: 0; padding: 10px 14px 11px; display: grid; grid-template-columns: 1fr auto; align-items: center; }
+    /* Three fixed rows down the top edge. Each row's offset is derived from the
+       one above, so changing a padding can no longer leave the next row sitting
+       5px from its neighbour while the one below sits 8px away. --hTurn and
+       --hChips are the two heights CSS cannot measure for itself. */
+    .hud {
+      --gut: 12px;
+      --hTurn: 62px;
+      --hChips: 40px;
+      --rowTurn: calc(env(safe-area-inset-top, 0px) + var(--gut));
+      --rowChips: calc(var(--rowTurn) + var(--hTurn) + var(--s2));
+      --rowPlayers: calc(var(--rowChips) + var(--hChips) + var(--s2));
+    }
+    #turn { top: var(--rowTurn); left: var(--gut); right: var(--gut);
+      min-width: 0; padding: var(--s2) var(--s3); display: grid; grid-template-columns: 1fr auto; align-items: center; }
     #turn .lbl { display: none; }
     #turn h1 { font-size: 21px; }
     #turn .sub { font-size: 11px; grid-column: 1; }
     #turn .board { grid-column: 2; grid-row: 1 / span 2; margin: 0; justify-self: end; font-size: 10px; }
 
     /* one chip row under the turn card; the panels themselves slide up on demand */
-    #tabs { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap;
-      top: calc(env(safe-area-inset-top, 0px) + 84px); left: auto; right: 12px; }
+    #tabs { display: flex; gap: var(--s2); justify-content: flex-end; flex-wrap: wrap;
+      top: var(--rowChips); left: auto; right: var(--gut); }
     #tabs .tab[data-sheet="road"] { display: flex; }   /* no room to pin it here */
-    .tab { min-height: 40px; padding: 7px 11px; font-size: 11.5px; }
+    .tab { min-height: var(--hChips); padding: var(--s2) var(--s3); font-size: 11.5px; }
 
     /* every player's holdings stay on screen; only road + news collapse */
-    #players { top: calc(env(safe-area-inset-top, 0px) + 132px); left: 12px; right: 12px; width: auto;
-      display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; overflow: visible; }
-    .pcard { grid-template-columns: 1fr; padding: 6px 7px; gap: 3px; text-align: center; }
+    #players { top: var(--rowPlayers); left: var(--gut); right: var(--gut); width: auto;
+      display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--s2); overflow: visible; }
+    .pcard { grid-template-columns: 1fr; padding: var(--s2); gap: var(--s1); text-align: center; }
     .pcard .swatch { justify-self: center; }
     .pmeta { min-width: 0; }
     .pmeta b { font-size: 11px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -965,11 +945,11 @@
     .pcash { grid-column: 1; font-size: 11.5px; }
     #players::-webkit-scrollbar { display: none; }
     #road, #logWrap {
-      left: 12px; right: 12px; width: auto; top: auto; bottom: 0; transform: translateY(calc(100% + 24px));
+      left: var(--gut); right: var(--gut); width: auto; top: auto; bottom: 0; transform: translateY(calc(100% + 24px));
       transition: transform .34s cubic-bezier(.2,1.1,.3,1);
       background: var(--panel); backdrop-filter: blur(10px); border: var(--edge);
       border-radius: var(--r) var(--r) 0 0; box-shadow: var(--lift);
-      padding: 14px 14px calc(env(safe-area-inset-bottom, 0px) + 16px); z-index: 8; }
+      padding: var(--s4) var(--s4) calc(env(safe-area-inset-bottom, 0px) + var(--s4)); z-index: 8; }
     body.sheet-road #road, body.sheet-log #logWrap { transform: none; }
     #logWrap { max-height: 46vh; overflow-y: auto; }
     #road { max-height: 46vh; }
@@ -977,29 +957,33 @@
     .pcard.active { transform: none; outline: 2px solid var(--ink); outline-offset: -2px; }
     .swatch { width: 10px; height: 10px; border-radius: 3px; }
 
-    #styles { top: calc(env(safe-area-inset-top, 0px) + 202px); left: 12px; right: auto;
-      transform: none; max-width: none; padding: 4px; z-index: 3; }
-    #styles .sbtn { padding: 6px 8px; }
-
-    #rollDock { left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    #rollDock { left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--gut));
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s2);
       pointer-events: none; }
     #rollDock > * { pointer-events: auto; }
-    #btnRoll { width: 92px; height: 92px; box-shadow: 0 8px 0 color-mix(in oklab, var(--ink) 62%, transparent); }
+    #btnRoll { --rollD: 92px; box-shadow: 0 8px 0 color-mix(in oklab, var(--ink) 62%, transparent); }
     #btnRoll .cube { width: 30px; height: 30px; margin-bottom: 3px; }
     #btnRoll .cube svg { width: 22px; height: 22px; }
     #btnRoll span { font-size: 14px; }
-    #diceRead { padding: 8px 10px; gap: 5px; }
+    #diceRead { padding: var(--s2) var(--s3); gap: var(--s1); min-width: 0; }
     #diceRead .face { width: 26px; height: 26px; border-radius: 7px; }
     #diceRead .face svg { width: 19px; height: 19px; }
     #diceRead .total { font-size: 10px; }
     #diceRead .total b { font-size: 13px; }
 
-    #actions { left: 12px; right: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
-      transform: none; display: grid; gap: 7px; padding: 8px; }
+    /* The camera control joins the chip row instead of sitting alone in the
+       opposite corner: it is a view toggle, same family as the sheet chips, and
+       the left half of that row was empty. The panel wrapper drops away so the
+       button reads as one more chip rather than a panel inside a row. */
+    #actions { top: var(--rowChips); left: var(--gut); right: auto; bottom: auto;
+      transform: none; display: flex; gap: var(--s2); padding: 0;
+      background: none; border: 0; box-shadow: none; backdrop-filter: none; }
+    #btnCam { min-height: var(--hChips); padding: var(--s2) var(--s3); font-size: 11.5px;
+      border-radius: 999px; background: var(--panel); border: var(--edge);
+      box-shadow: var(--lift-sm); backdrop-filter: blur(10px); }
     #btnEnd { display: none !important; }
     #roadList { grid-auto-columns: 84px; }
-    button.act { padding: 11px 14px; font-size: 13px; }
+    button.act { padding: var(--s2) var(--s3); font-size: 13px; }
     .hint { display: none; }
 
     #moment { place-items: end center; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); }
@@ -1013,12 +997,18 @@
   }
   /* short viewports: no vertical room for a tall dock or a stacked player list */
   @media (max-height: 520px) {
-    #styles { display: none; }
+    /* no spare width up top here — players and chips already share that row */
+    #actions { top: auto; left: var(--gut); bottom: calc(env(safe-area-inset-bottom, 0px) + var(--gut)); }
     #roadList { grid-auto-columns: 78px; }
     .rtile { padding: 5px 7px 6px; }
     .rtile .n { min-height: 22px; font-size: 10px; }
     #tabs { top: calc(env(safe-area-inset-top, 0px) + 85px); }
-    #players { top: calc(env(safe-area-inset-top, 0px) + 85px); left: 12px; right: 180px; }
+    /* players share this row with the chip strip, so reserve the strip's width
+       rather than guessing — 180px was narrower than the chips even without the
+       cheat chip, so the last player card ran underneath them */
+    #players { --chipsW: 257px;
+      top: calc(env(safe-area-inset-top, 0px) + 85px); left: var(--gut);
+      right: calc(var(--gut) + var(--chipsW) + var(--s2)); }
     .pcard { padding: 5px 6px; }
     .pmeta b { font-size: 10px; }
     .pcash { font-size: 10.5px; }
@@ -1026,16 +1016,13 @@
     #rollDock { left: 0; right: 0; flex-direction: row; align-items: flex-end; justify-content: center; gap: 9px;
       pointer-events: none; }
     #rollDock > * { pointer-events: auto; }
-    #btnRoll { width: 74px; height: 74px; box-shadow: 0 6px 0 color-mix(in oklab, var(--ink) 62%, transparent); }
+    #btnRoll { --rollD: 74px; box-shadow: 0 6px 0 color-mix(in oklab, var(--ink) 62%, transparent); }
     #btnRoll .cube { width: 24px; height: 24px; margin-bottom: 2px; }
     #btnRoll .cube svg { width: 18px; height: 18px; }
     #btnRoll span { font-size: 12px; }
     #diceRead { padding: 6px 8px; }
     #diceRead .face { width: 22px; height: 22px; }
     #diceRead .face svg { width: 16px; height: 16px; }
-    /* actions hug the left edge so they clear the right-anchored dock */
-    #actions { left: 12px; right: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
-      grid-auto-flow: column; gap: 6px; }
     button.act { padding: 10px 12px; font-size: 12px; }
     #mCard { padding: 20px 20px 18px; }
     #mAmount { font-size: 42px; margin: 8px 0 2px; }
@@ -1050,10 +1037,9 @@
     #mOk, #mNo { padding: 12px; font-size: 14px; }
   }
   @media (max-width: 700px) {
-    #btnRoll { width: 104px; height: 104px; }
+    #btnRoll { --rollD: 104px; }
     #btnRoll .cube { width: 36px; height: 36px; margin-bottom: 4px; }
     #btnRoll span { font-size: 15px; }
-    #actions { bottom: 152px; }
   }
 
   /* The drawn card is the loudest thing in the game: a deal, a lift, a flip and a
@@ -1160,23 +1146,6 @@
 
     <div class="row opts">
       <div class="col">
-      <span class="lbl">Look</span>
-      <div class="pills">
-        <button class="pill" data-pick="style" data-val="clay" aria-pressed="true">
-          <span class="dots"><i style="background:#f4715c"></i><i style="background:#ffd07a"></i><i style="background:#7fd2e6"></i></span>Clay
-        </button>
-        <button class="pill" data-pick="style" data-val="paper" aria-pressed="false">
-          <span class="dots"><i style="background:#c9503f"></i><i style="background:#dcae5c"></i><i style="background:#7fb5c4"></i></span>Paper
-        </button>
-        <button class="pill" data-pick="style" data-val="arcane" aria-pressed="false">
-          <span class="dots"><i style="background:#e8c477"></i><i style="background:#a06ede"></i><i style="background:#63b58a"></i></span>Arcane
-        </button>
-        <button class="pill" data-pick="style" data-val="neon" aria-pressed="false">
-          <span class="dots"><i style="background:#ff5c8a"></i><i style="background:#14e0c8"></i><i style="background:#2fe08a"></i></span>Neon
-        </button>
-      </div>
-      </div>
-      <div class="col">
       <span class="lbl">Pace</span>
       <div class="pills">
         <button class="pill" data-pick="rapid" data-val="off" aria-pressed="true">Standard</button>
@@ -1262,15 +1231,6 @@
         <span id="galPreviewText"></span>
       </div>
       <div id="galCardList"></div>
-      <div class="galGroup">
-        <span class="lbl">Look</span>
-        <div id="galLooks">
-          <button data-look="clay" aria-pressed="true">Clay</button>
-          <button data-look="paper" aria-pressed="false">Paper</button>
-          <button data-look="arcane" aria-pressed="false">Arcane</button>
-          <button data-look="neon" aria-pressed="false">Neon</button>
-        </div>
-      </div>
       <div class="lbl">All 32 clips</div>
       <div id="galClips"></div>
     </div>
@@ -1295,22 +1255,6 @@
 </div>
 
 <div class="hud" id="players"></div>
-
-<div class="hud panel" id="styles">
-  <span class="lbl cap">Style</span>
-  <button class="sbtn" title="Clay — soft toy blocks" aria-label="Clay — soft toy blocks" data-style="clay" aria-pressed="true">
-    <span class="dots"><i style="background:#f4715c"></i><i style="background:#ffd07a"></i><i style="background:#7fd2e6"></i></span>Clay
-  </button>
-  <button class="sbtn" title="Paper — pressed card and linen" aria-label="Paper — pressed card and linen" data-style="paper" aria-pressed="false">
-    <span class="dots"><i style="background:#c9503f"></i><i style="background:#dcae5c"></i><i style="background:#7fb5c4"></i></span>Paper
-  </button>
-  <button class="sbtn" title="Arcane — twilight and gold leaf" aria-label="Arcane — twilight and gold leaf" data-style="arcane" aria-pressed="false">
-    <span class="dots"><i style="background:#e8c477"></i><i style="background:#a06ede"></i><i style="background:#63b58a"></i></span>Arcane
-  </button>
-  <button class="sbtn" title="Neon — arcade night" aria-label="Neon — arcade night" data-style="neon" aria-pressed="false">
-    <span class="dots"><i style="background:#ff5c8a"></i><i style="background:#14e0c8"></i><i style="background:#2fe08a"></i></span>Neon
-  </button>
-</div>
 
 <div class="hud panel" id="logWrap">
   <div class="lbl" id="newsTitle">Harbour news</div>

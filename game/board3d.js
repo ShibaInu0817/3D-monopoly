@@ -1,5 +1,6 @@
 // Miniature-diorama board: geometry, canvas-textured tiles, tokens, buildings.
-// Everything visual is driven by a THEME so the look can be swapped live.
+// Every colour, light and paper knob comes from LOOK below — one record, fixed
+// at load. There used to be four and a picker to swap them live.
 import * as THREE from 'three';
 import { TILES, GROUPS, BOARD, CURRENCY, CAST } from './data.js';
 
@@ -10,60 +11,22 @@ export const CORNER = 0.19;
 export const BAND = 0.19;
 export const TW = (HALF * 2 - CORNER * 2) / 9;
 
-export const THEMES = {
-  clay: {
-    label: 'Clay', hint: 'soft toy blocks',
-    paper: 0xfff4e6, frame: 0xe9a45f, land: 0x9ad588, sand: 0xffe4b0, water: 0x7fd2e6,
-    ink: 0x5a463c, white: 0xfffdf7, red: 0xf4715c, roof: 0xf4715c, wall: 0xfffaf1,
-    brass: 0xffd07a, trunk: 0xc08a5a, leaf: 0x74c987, leafDark: 0x53ad6b,
-    table: 0xf6dcb6, bg: 0xffeacb, fog: [3.4, 8],
-    hemi: 1.05, key: 1.65, fill: 0.5, rough: 0.95, metal: 0,
-    tileBg: '#fff6ea', tileTop: '#fffaf2', tileBot: '#f7e6d2', tileInk: '#4a3830',
-    tileSub: 'rgba(90,70,60,0.62)', tileEdge: 'rgba(120,86,60,0.3)', accentInk: '#e2603f',
-    edgeW: 7, round: 26, pastel: 0.06, grain: 0.09,
-    glow: 0, chunk: 1.06,
-  },
-  paper: {
-    label: 'Paper', hint: 'pressed card & linen',
-    paper: 0xf6f0e3, frame: 0x9b6b41, land: 0x8fb583, sand: 0xe7d6ae, water: 0x7fb5c4,
-    ink: 0x2a2521, white: 0xfaf6ee, red: 0xc9503f, roof: 0xb8443a, wall: 0xf6f1e6,
-    brass: 0xdcae5c, trunk: 0x7a5638, leaf: 0x4f8a55, leafDark: 0x3f7147,
-    table: 0xbdc9c2, bg: 0xdfe7e4, fog: [3.2, 7.5],
-    hemi: 0.8, key: 2.0, fill: 0.5, rough: 0.85, metal: 0.04,
-    tileBg: '#f4eddf', tileTop: '#faf5ea', tileBot: '#e9dfcb', tileInk: '#2a2521',
-    tileSub: 'rgba(42,37,33,0.62)', tileEdge: 'rgba(42,37,33,0.42)', accentInk: '#c9503f',
-    edgeW: 5, round: 10, pastel: 0, grain: 0.14,
-    glow: 0, chunk: 1,
-  },
-  arcane: {
-    label: 'Arcane', hint: 'twilight, gold leaf and gemlight',
-    paper: 0x2a2748, frame: 0x6a5a9c, land: 0x3c6f5e, sand: 0x6b6193, water: 0x5f8fd4,
-    ink: 0xf2e7c8, white: 0xf6efdc, red: 0xd9634f, roof: 0xd9634f, wall: 0x3a3560,
-    brass: 0xe8c477, trunk: 0x5b4a72, leaf: 0x63b58a, leafDark: 0x4a9270,
-    table: 0x14122a, bg: 0x171436, fog: [3.1, 8.6],
-    hemi: 0.62, key: 1.35, fill: 0.45, rough: 0.62, metal: 0.16,
-    tileBg: '#2f2b52', tileTop: '#3a3564', tileBot: '#262247', tileInk: '#f4ead0',
-    tileSub: 'rgba(244,234,208,0.62)', tileEdge: 'rgba(232,196,119,0.6)', accentInk: '#e8c477',
-    edgeW: 6, round: 20, pastel: 0, grain: 0.08,
-    glow: 1, chunk: 1.04,
-  },
-  neon: {
-    label: 'Neon', hint: 'arcade night',
-    paper: 0x1b2233, frame: 0x2b3550, land: 0x1f5f5a, sand: 0x2a4a63, water: 0x14e0c8,
-    ink: 0xdff3ff, white: 0xeef7ff, red: 0xff5c8a, roof: 0xff5c8a, wall: 0x243050,
-    brass: 0xffd36e, trunk: 0x3a4a63, leaf: 0x2fe08a, leafDark: 0x1fae74,
-    table: 0x0b0f19, bg: 0x0a0e18, fog: [3.0, 8.5],
-    hemi: 0.45, key: 1.15, fill: 0.35, rough: 0.5, metal: 0.18,
-    tileBg: '#161d2e', tileTop: '#1d2740', tileBot: '#101728', tileInk: '#eaf6ff',
-    tileSub: 'rgba(220,240,255,0.66)', tileEdge: 'rgba(120,210,255,0.5)', accentInk: '#ff5c8a',
-    edgeW: 6, round: 16, pastel: 0, grain: 0.07,
-    glow: 1, chunk: 1.04,
-  },
-};
+/* The one look. `glow` and `tileBg` are gone with the other three records:
+   glow was 0 here so every branch it guarded was dead, and tileBg only ever
+   served as a fallback for tileTop/tileBot, which are always present. */
+export const LOOK = Object.freeze({
+  paper: 0xfff4e6, frame: 0xe9a45f, land: 0x9ad588, sand: 0xffe4b0, water: 0x7fd2e6,
+  ink: 0x5a463c, white: 0xfffdf7, red: 0xf4715c, roof: 0xf4715c, wall: 0xfffaf1,
+  brass: 0xffd07a, trunk: 0xc08a5a, leaf: 0x74c987, leafDark: 0x53ad6b,
+  table: 0xf6dcb6, bg: 0xffeacb, fog: [3.4, 8],
+  hemi: 1.05, key: 1.65, fill: 0.5, rough: 0.95, metal: 0,
+  tileTop: '#fffaf2', tileBot: '#f7e6d2', tileInk: '#4a3830',
+  tileSub: 'rgba(90,70,60,0.62)', tileEdge: 'rgba(120,86,60,0.3)', accentInk: '#e2603f',
+  edgeW: 7, round: 26, pastel: 0.06, grain: 0.09,
+  chunk: 1.06,
+});
 
-export let theme = THEMES.clay;
-
-const mkMat = (name, keyName, o = {}) => new THREE.MeshStandardMaterial({ name, color: theme[keyName], ...o });
+const mkMat = (name, keyName, o = {}) => new THREE.MeshStandardMaterial({ name, color: LOOK[keyName], ...o });
 
 export const MATS = {
   frame: mkMat('frame', 'frame'), paper: mkMat('paper', 'paper'), land: mkMat('land', 'land'),
@@ -71,7 +34,7 @@ export const MATS = {
   white: mkMat('white', 'white'), red: mkMat('red', 'red'), roof: mkMat('roof', 'roof'),
   wall: mkMat('wall', 'wall'), brass: mkMat('brass', 'brass'), trunk: mkMat('trunk', 'trunk'),
   leaf: mkMat('leaf', 'leaf'), leafDark: mkMat('leafDark', 'leafDark'),
-  table: new THREE.MeshStandardMaterial({ name: 'table', color: theme.table, roughness: 0.95 }),
+  table: new THREE.MeshStandardMaterial({ name: 'table', color: LOOK.table, roughness: 0.95 }),
 };
 
 
@@ -152,21 +115,12 @@ function waveTex(hex) {
 }
 const MAPPED = { frame: woodTex, table: feltTex, land: grassTex, water: waveTex };
 
-const GLOWY = ['water', 'red', 'roof', 'brass', 'leaf'];
-
-export function applyMaterialTheme() {
+function paintMaterials() {
   Object.keys(MATS).forEach(k => {
     const m = MATS[k];
-    if (theme[k] !== undefined) m.color.setHex(theme[k]);
-    m.roughness = k === 'water' ? Math.max(0.15, theme.rough - 0.5) : theme.rough;
-    m.metalness = k === 'brass' ? theme.metal + 0.2 : theme.metal;
-    if (theme.glow && GLOWY.includes(k)) {
-      m.emissive.setHex(theme[k]);
-      m.emissiveIntensity = k === 'water' ? 0.55 : 0.35;
-    } else {
-      m.emissive.setHex(0x000000);
-      m.emissiveIntensity = 0;
-    }
+    if (LOOK[k] !== undefined) m.color.setHex(LOOK[k]);
+    m.roughness = k === 'water' ? Math.max(0.15, LOOK.rough - 0.5) : LOOK.rough;
+    m.metalness = k === 'brass' ? LOOK.metal + 0.2 : LOOK.metal;
     m.needsUpdate = true;
   });
   MATS.table.roughness = 0.95;
@@ -174,11 +128,11 @@ export function applyMaterialTheme() {
   Object.keys(MAPPED).forEach(k => {
     const m = MATS[k];
     if (m.map) m.map.dispose();
-    m.map = MAPPED[k](theme[k]);
+    m.map = MAPPED[k](LOOK[k]);
     m.needsUpdate = true;
   });
 }
-applyMaterialTheme();
+paintMaterials();
 
 export function tileTransform(i) {
   if (i === 0)  return { x:  HALF - CORNER / 2, z:  HALF - CORNER / 2, rot: Math.PI, corner: true };
@@ -251,13 +205,13 @@ function tileTexture(i) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   const g = c.getContext('2d');
-  const R = theme.round || 10;
-  const E = theme.edgeW || 4;
+  const R = LOOK.round;
+  const E = LOOK.edgeW;
 
   // card body with a soft top-lit gradient
   const grad = g.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, theme.tileTop || theme.tileBg);
-  grad.addColorStop(1, theme.tileBot || theme.tileBg);
+  grad.addColorStop(0, LOOK.tileTop);
+  grad.addColorStop(1, LOOK.tileBot);
   g.fillStyle = grad;
   rr(g, E / 2, E / 2, w - E, h - E, R);
   g.fill();
@@ -265,14 +219,14 @@ function tileTexture(i) {
   g.save();
   rr(g, E / 2, E / 2, w - E, h - E, R);
   g.clip();
-  noise(g, w, h, theme.grain ?? 0.1);
+  noise(g, w, h, LOOK.grain);
 
   if (t.kind === 'property') {
     const bandH = h * 0.27;
     const gc = GROUPS[t.group].color;
     const bg = g.createLinearGradient(0, 0, 0, bandH);
-    bg.addColorStop(0, pastel(gc, (theme.pastel ?? 0) + 0.16));
-    bg.addColorStop(1, pastel(gc, theme.pastel ?? 0));
+    bg.addColorStop(0, pastel(gc, LOOK.pastel + 0.16));
+    bg.addColorStop(1, pastel(gc, LOOK.pastel));
     g.fillStyle = bg;
     g.fillRect(0, 0, w, bandH);
     // drop shadow beneath the band
@@ -291,17 +245,17 @@ function tileTexture(i) {
   // inner vignette so the card reads as a physical piece
   const vg = g.createRadialGradient(w / 2, h * 0.44, w * 0.18, w / 2, h * 0.5, w * 0.95);
   vg.addColorStop(0, 'rgba(0,0,0,0)');
-  vg.addColorStop(1, theme.glow ? 'rgba(0,0,0,0.34)' : 'rgba(0,0,0,0.13)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.13)');
   g.fillStyle = vg;
   g.fillRect(0, 0, w, h);
   g.restore();
 
-  g.strokeStyle = theme.tileEdge; g.lineWidth = E;
+  g.strokeStyle = LOOK.tileEdge; g.lineWidth = E;
   rr(g, E / 2, E / 2, w - E, h - E, R);
   g.stroke();
 
   g.textAlign = 'center';
-  g.fillStyle = theme.tileInk;
+  g.fillStyle = LOOK.tileInk;
   const F = '"Baloo 2", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif';
 
   if (tr.corner) {
@@ -309,7 +263,7 @@ function tileTexture(i) {
     const lines = wrap(g, t.name, w * 0.78);
     lines.forEach((l, n) => g.fillText(l, w / 2, h * 0.48 + (n - (lines.length - 1) / 2) * 68));
     g.font = '600 38px ' + F;
-    g.fillStyle = theme.tileSub;
+    g.fillStyle = LOOK.tileSub;
     const L = BOARD.labels;
     const u = (BOARD.labels && BOARD.labels.ui) || {};
     const sub = {
@@ -327,11 +281,10 @@ function tileTexture(i) {
   wrap(g, t.name, w * 0.84).forEach((l, n) => g.fillText(l, w / 2, top + n * 50));
 
   if (GLYPH[t.kind]) {
-    const col = t.kind === 'chance' ? (theme.glow ? '#ff5c8a' : theme.accentInk || '#d8503f') : theme.tileSub;
+    const col = t.kind === 'chance' ? LOOK.accentInk : LOOK.tileSub;
     g.font = '800 138px ' + F;
     g.fillStyle = col;
-    if (theme.glow) { g.shadowColor = col; g.shadowBlur = 24; }
-    else { g.shadowColor = 'rgba(0,0,0,0.16)'; g.shadowBlur = 0; g.shadowOffsetY = 5; }
+    g.shadowColor = 'rgba(0,0,0,0.16)'; g.shadowBlur = 0; g.shadowOffsetY = 5;
     g.fillText(GLYPH[t.kind], w / 2, h * 0.7);
     g.shadowBlur = 0; g.shadowOffsetY = 0;
   }
@@ -340,7 +293,7 @@ function tileTexture(i) {
     : t.amount ? (uu.tilePay || 'pay ') + CURRENCY + t.amount : '';
   if (foot) {
     g.font = '700 40px ' + F;
-    g.fillStyle = theme.tileSub;
+    g.fillStyle = LOOK.tileSub;
     g.fillText(foot, w / 2, h * 0.93);
   }
   return new THREE.CanvasTexture(c);
@@ -863,25 +816,19 @@ export class BoardView {
     }
   }
 
-  setTheme(next) {
-    theme = next;
-    applyMaterialTheme();
+  /** A restored WebGL context has lost every GPU copy. The canvases and the
+   *  procedural maps live on the JS side, so regenerating them puts the board
+   *  back. Nothing else calls this — the look never changes at runtime. */
+  rebuildTextures() {
+    paintMaterials();
     for (let i = 0; i < 40; i++) {
       const lm = this.labelMats[i];
       if (lm.map) lm.map.dispose();
       const tex = tileTexture(i);
       tex.colorSpace = THREE.SRGBColorSpace;
       lm.map = tex;
-      lm.emissive.setHex(theme.glow ? 0x223044 : 0x000000);
-      lm.emissiveIntensity = theme.glow ? 0.5 : 0;
-      lm.emissiveMap = theme.glow ? tex : null;
       lm.needsUpdate = true;
     }
-    this.buildings.forEach((layer, i) => {
-      const n = layer.userData.n || 0;
-      layer.userData.n = -1;
-      this.setBuildings(i, n);
-    });
   }
 
   tokenSpot(i, slot) {
@@ -907,8 +854,6 @@ export class BoardView {
     if (hex === null || hex === undefined) { f.visible = false; return; }
     f.visible = true;
     f.userData.cloth.material.color.setHex(hex);
-    f.userData.cloth.material.emissive.setHex(theme.glow ? hex : 0x000000);
-    f.userData.cloth.material.emissiveIntensity = theme.glow ? 0.4 : 0;
   }
 
   setBuildings(i, n) {
@@ -924,7 +869,7 @@ export class BoardView {
         ? (() => { const t = normalise(towerProtos[i % towerProtos.length], 0.105, 0.048); t.name = 'tower_' + i; return t; })()
         : makeLighthouse('lighthouse_' + i);
       tw.position.set(0, 0.003, zRow);
-      tw.scale.setScalar(theme.chunk);
+      tw.scale.setScalar(LOOK.chunk);
       tw.rotation.y = ((i * 7) % 4) * Math.PI / 2;
       layer.add(tw);
       return;
@@ -940,7 +885,7 @@ export class BoardView {
     SLOTS.forEach(([x, z], k) => {
       const h = makeHouse(`house_${i}_${k}`, i + k);
       h.position.set(x, 0.003, z);
-      h.scale.setScalar(0.92 * theme.chunk);
+      h.scale.setScalar(0.92 * LOOK.chunk);
       h.rotation.y = Math.PI;                       // face the street
       layer.add(h);
     });

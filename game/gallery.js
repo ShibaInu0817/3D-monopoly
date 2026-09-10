@@ -1,6 +1,6 @@
 // Menu gallery: preview every piece, every animation clip, and every card reaction.
 import * as THREE from 'three';
-import { loadPieces, makeCharacterToken, THEMES, MATS } from './board3d.js';
+import { loadPieces, makeCharacterToken, MATS } from './board3d.js';
 import { BOARDS, PLAYER_COLORS, cardFlavour } from './data.js';
 
 const CLIP_GROUPS = [
@@ -30,7 +30,7 @@ const nextFrame = cb => {
 };
 
 let renderer, scene, camera, stage, piece, mixerClock;
-let pieceIndex = 0, styleName = 'clay', current = 'idle', boardId = Object.keys(BOARDS)[0];
+let pieceIndex = 0, current = 'idle', boardId = Object.keys(BOARDS)[0];
 let clipNames = [];
 let spin = 0, drag = null, ready = false;
 
@@ -155,16 +155,7 @@ function renderCards() {
   $('galCardCount').textContent = (b.chance.length + b.ledger.length) + ' cards';
 }
 
-function applyLook(name) {
-  styleName = name;
-  const t = THEMES[name];
-  document.documentElement.dataset.theme = name;
-  scene.children.forEach(o => { if (o.isMesh) o.material.color.setHex(t.table); });
-  document.querySelectorAll('#galLooks button').forEach(b =>
-    b.setAttribute('aria-pressed', String(b.dataset.look === name)));
-}
-
-export async function openGallery(look, board) {
+export async function openGallery(board) {
   if (board && BOARDS[board]) boardId = board;
   const el = $('gallery');
   el.hidden = false;
@@ -207,10 +198,6 @@ export async function openGallery(look, board) {
       const b = e.target.closest('button');
       if (b) setPiece(+b.dataset.piece);
     });
-    $('galLooks').addEventListener('click', e => {
-      const b = e.target.closest('button');
-      if (b) applyLook(b.dataset.look);
-    });
     $('galClose').addEventListener('click', closeGallery);
     addEventListener('keydown', e => {
       if (e.key === 'Escape' && !$('gallery').hidden) closeGallery();
@@ -221,7 +208,6 @@ export async function openGallery(look, board) {
   renderBoardTabs();
   renderCards();
   fit();
-  if (look) applyLook(look);
 }
 
 function closeGallery() {

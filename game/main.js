@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BoardView, makeToken, makeCharacterToken, loadPieces, loadBuildings, makeDie, DIE_UP, THEMES, MATS, TOP, CHARACTERS } from './board3d.js';
+import { BoardView, makeToken, makeCharacterToken, loadPieces, loadBuildings, makeDie, DIE_UP, LOOK, MATS, TOP, CHARACTERS } from './board3d.js';
 import * as D from './data.js';
 import * as NET from './net-mqtt.js';
 import { PLAYER_COLORS } from './data.js';
@@ -29,7 +29,7 @@ const nextFrame = cb => {
 };
 
 /* ---------------- menu ---------------- */
-const choice = { board: 'ipoh', style: 'clay', players: 4, rapid: false, bots: 0, cash: 300 };
+const choice = { board: 'ipoh', players: 4, rapid: false, bots: 0, cash: 300 };
 
 /** A snapshot from a crashed or closed game turns into one button on the menu. */
 function offerResume() {
@@ -55,14 +55,7 @@ function wireMenu() {
       if (kind === 'board') {
         $('menuBlurb').textContent = D.BOARDS[val].blurb;
         document.documentElement.dataset.board = val;
-        // each board opens on the look it was drawn for
-        const suggested = { hustle: 'paper', ipoh: 'paper' }[val] || 'clay';
-        choice.style = suggested;
-        document.documentElement.dataset.theme = suggested;
-        document.querySelectorAll('#menu [data-pick="style"]').forEach(s =>
-          s.setAttribute('aria-pressed', String(s.dataset.val === suggested)));
       }
-      if (kind === 'style') document.documentElement.dataset.theme = val;
     });
   });
   // read off the tab row rather than a hardcoded list, so adding a tab is one
@@ -103,7 +96,7 @@ function wireMenu() {
   wireLobby();
   $('btnGallery').addEventListener('click', async () => {
     const { openGallery } = await import('./gallery.js');
-    openGallery(choice.style, choice.board);
+    openGallery(choice.board);
   });
 }
 
@@ -224,7 +217,7 @@ function requestDecide(yes) { NET.submit({ type: 'decide', yes }); }
 
 /* ---------------- scene (built once the board is chosen) ---------------- */
 let renderer, scene, camera, hemi, key, fill, board, state, tokens, dice;
-let mode = 'follow', orbit = 0, userDrag = null, busy = false, styleName = 'clay';
+let mode = 'follow', orbit = 0, userDrag = null, busy = false;
 let buildFocus = null;             // tile index while a build cinematic is running
 let zoom = 1, tapMoved = false;
 let lastCash = [];
@@ -240,12 +233,14 @@ function buildScene() {
   renderer.toneMappingExposure = 1.05;
 
   scene = new THREE.Scene();
+  scene.background = new THREE.Color(LOOK.bg);
+  scene.fog = new THREE.Fog(LOOK.bg, LOOK.fog[0], LOOK.fog[1]);
   camera = new THREE.PerspectiveCamera(38, 1, 0.05, 40);
   camera.position.set(1.0, 0.9, 1.5);
 
-  hemi = new THREE.HemisphereLight(0xd9ecff, 0x9a8b74, 1);
+  hemi = new THREE.HemisphereLight(0xd9ecff, 0x9a8b74, LOOK.hemi);
   scene.add(hemi);
-  key = new THREE.DirectionalLight(0xfff2dd, 1.8);
+  key = new THREE.DirectionalLight(0xfff2dd, LOOK.key);
   key.position.set(1.4, 2.2, 1.0);
   key.castShadow = true;
   key.shadow.mapSize.set(2048, 2048);
@@ -253,7 +248,7 @@ function buildScene() {
   Object.assign(key.shadow.camera, { left: -d, right: d, top: d, bottom: -d, near: 0.5, far: 6 });
   key.shadow.bias = -0.0006;
   scene.add(key);
-  fill = new THREE.DirectionalLight(0xcfe2ff, 0.5);
+  fill = new THREE.DirectionalLight(0xcfe2ff, LOOK.fill);
   fill.position.set(-1.6, 1.2, -1.1);
   scene.add(fill);
 
@@ -271,6 +266,10 @@ function buildScene() {
     const t = piecesReady ? makeCharacterToken(c.hex, 'token_' + c.name.toLowerCase(), which)
                           : makeToken(c.hex, 'token_' + c.name.toLowerCase());
     t.position.copy(board.tokenSpot(0, i));
+    // the walk and the hop read baseScale, so a piece keeps this size mid-stride
+    t.userData.baseScale = LOOK.chunk;
+    t.scale.setScalar(LOOK.chunk);
+    t.userData.material.roughness = 0.55;   // the board finish, not the select screen's
     scene.add(t);
     return t;
   });
@@ -289,7 +288,7 @@ function buildScene() {
   });
   canvas.addEventListener('webglcontextrestored', () => {
     console.warn('GL context restored');
-    board.setTheme(THEMES[styleName]);
+    board.rebuildTextures();
     refreshBoardVisuals();
   });
   let dragStart = null, dragged = false;
@@ -341,30 +340,6 @@ function resize() {
 }
 
 /* ---------------- styles ---------------- */
-function applyStyle(name) {
-  styleName = name;
-  const t = THEMES[name];
-  board.setTheme(t);
-  scene.background = new THREE.Color(t.bg);
-  scene.fog = new THREE.Fog(t.bg, t.fog[0], t.fog[1]);
-  hemi.intensity = t.hemi;
-  key.intensity = t.key;
-  fill.intensity = t.fill;
-  MATS.table.color.setHex(t.table);
-  tokens.forEach(tk => {
-    tk.userData.baseScale = t.chunk;
-    tk.scale.setScalar(t.chunk);
-    const cm = tk.userData.material;
-    const lit = name === 'neon' || name === 'arcane';
-    cm.roughness = lit ? 0.35 : 0.55;
-    cm.emissive.setHex(lit ? cm.color.getHex() : 0x000000);
-    cm.emissiveIntensity = lit ? 0.4 : 0;
-  });
-  document.documentElement.dataset.theme = name;
-  document.querySelectorAll('.sbtn').forEach(b =>
-    b.setAttribute('aria-pressed', String(b.dataset.style === name)));
-}
-
 /* ---------------- camera rig ---------------- */
 const camTarget = new THREE.Vector3();
 const camPos = new THREE.Vector3();
@@ -497,8 +472,8 @@ const pace = () => (state && state.rapid ? 0.5 : 1);
 // Motion the player did not ask for: the card beats opt out. The piece's own walk
 // and hop stay — that is the game itself, and the turn flow awaits them.
 const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-/* Beat colours come off the 3D palette, not the CSS tokens: a --good green under
-   neon lighting reads as a bug. leaf/red/brass/water exist in all four THEMES. */
+/* Beat colours come off the 3D palette, not the CSS tokens: the board is lit, so
+   a --good green taken from a CSS token reads wrong against it. All keys on LOOK. */
 const BEAT_INK = { good: 'leaf', bad: 'red', warn: 'brass', travel: 'water' };
 
 const clip = (token, name, opts) => { if (token.userData.play) token.userData.play(name, opts); };
@@ -957,7 +932,7 @@ function shockRing(i, hex, big) {
  *  wall-clock guard means no beat can hold a turn open. */
 function cardBeat(n, pl) {
   if (calm() || !board || !pl) return Promise.resolve();
-  const ink = k => THEMES[styleName][k];
+  const ink = k => LOOK[k];
   const tk = tokens[pl.id];
   const tone = BEAT_INK[n.tone] || BEAT_INK.travel;
 
@@ -1248,7 +1223,7 @@ async function teleportTo(p, target, tone) {
   await hop(tk, board.tokenSpot(target, p.id), 0.22, 460 * pace());
   // The destination announces itself as the piece lands. Ringing it earlier is
   // wasted: the follow camera sits on the actor while the popup is still up.
-  if (tone && !calm()) shockRing(target, THEMES[styleName][BEAT_INK[tone] || BEAT_INK.travel]);
+  if (tone && !calm()) shockRing(target, LOOK[BEAT_INK[tone] || BEAT_INK.travel]);
   clip(tk, 'idle');
 }
 
@@ -1686,7 +1661,6 @@ async function enterCast(msg) {
   castMod.pickInRoom({
     seat: NET.net.seat,
     total: castTotal(),
-    look: choice.style,
     onPick: char => NET.sendPick(char),
   });
   castMod.castUpdate(msg.chars, castDeadline);
@@ -1724,7 +1698,7 @@ async function startGame(resume) {
       D.setBoard(choice.board);        // the crew belongs to the board; pick it first
       $('menu').hidden = true;
       const seats = humanSeats();
-      const chars = await sel.pickCharacters(choice.players, choice.style, seats);
+      const chars = await sel.pickCharacters(choice.players, seats);
       choice.chars = sel.fillRandom(chars, botSeats());   // computers take leftovers
     } catch (err) {
       console.warn('character select unavailable', err);
@@ -1779,7 +1753,6 @@ async function startGame(resume) {
   mountCheat();                    // needs D.TILES, so it waits for setBoard
 
   buildScene();
-  applyStyle(choice.style);
   if (resume) {
     state.players.forEach(pl => {
       const tk = tokens[pl.id];
@@ -1802,10 +1775,6 @@ async function startGame(resume) {
 
   $('btnUnstick').textContent = T('unstick', '卡住了？点这里');
   $('btnUnstick').addEventListener('click', () => { $('btnUnstick').hidden = true; unstick(); });
-  $('styles').addEventListener('click', e => {
-    const b2 = e.target.closest('.sbtn');
-    if (b2) applyStyle(b2.dataset.style);
-  });
   $('buildList').addEventListener('click', async e => {
     const btn = e.target.closest('button');
     if (!btn || busy || !myTurn()) return;
