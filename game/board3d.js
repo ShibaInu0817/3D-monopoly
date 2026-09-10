@@ -182,6 +182,8 @@ function wrap(ctx, text, maxW) {
 }
 
 const GLYPH = { chance: '?', ledger: '$', tax: '!', pier: '⚓', works: '✳' };
+/* An anchor on a flower garden reads oddly, so a board may swap any of these. */
+const glyphFor = kind => (BOARD.glyph && BOARD.glyph[kind]) || GLYPH[kind];
 
 function noise(g, w, h, alpha) {
   const n = document.createElement('canvas');
@@ -297,12 +299,12 @@ function tileTexture(i) {
   const top = t.kind === 'property' ? h * 0.4 : h * 0.24;
   wrap(g, t.name, w * 0.84).forEach((l, n) => g.fillText(l, w / 2, top + n * 50));
 
-  if (GLYPH[t.kind]) {
+  if (glyphFor(t.kind)) {
     const col = t.kind === 'chance' ? LOOK.accentInk : LOOK.tileSub;
     g.font = '800 138px ' + F;
     g.fillStyle = col;
     g.shadowColor = 'rgba(0,0,0,0.16)'; g.shadowBlur = 0; g.shadowOffsetY = 5;
-    g.fillText(GLYPH[t.kind], w / 2, h * 0.7);
+    g.fillText(glyphFor(t.kind), w / 2, h * 0.7);
     g.shadowBlur = 0; g.shadowOffsetY = 0;
   }
   const uu = (BOARD.labels && BOARD.labels.ui) || {};
@@ -414,6 +416,12 @@ function normalise(src, height, maxFoot) {
 
 export async function loadBuildings() {
   const kit = BOARD.build || CITY_BUILD;
+  if (kit.kind === 'stars') {                   // built from geometry, nothing to fetch
+    buildKey = 'stars';
+    houseProtos = []; towerProtos = [];
+    sceneProps.clear();
+    return;
+  }
   const key = kit.houses.concat(kit.towers).join('|');
   if (key === buildKey) return;                 // already holding this board's kit
   buildKey = key;
@@ -739,7 +747,78 @@ export const DIE_UP = {
   4: [0, 0, -Math.PI / 2], 5: [Math.PI / 2, 0, 0], 6: [Math.PI, 0, 0],
 };
 
+/* ---------------- stars and certificates ----------------
+   A board may build literal stars instead of loading a kit. Sanrio Friends does,
+   because the real edition calls its houses Stars and its hotels 5-Star
+   Certificates — so the building ladder already had a shape, and a star is
+   unmistakable at tile size in a way a small cottage is not. */
+
+function starShape(outer, inner, points = 5) {
+  const sh = new THREE.Shape();
+  for (let i = 0; i < points * 2; i++) {
+    const r = i % 2 ? inner : outer;
+    const a = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
+    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    i ? sh.lineTo(x, y) : sh.moveTo(x, y);
+  }
+  sh.closePath();
+  return sh;
+}
+
+function starMesh(name, outer, depth, mat) {
+  const geo = new THREE.ExtrudeGeometry(starShape(outer, outer * 0.42), {
+    depth, bevelEnabled: true, bevelThickness: depth * 0.4, bevelSize: outer * 0.06,
+    bevelSegments: 2, curveSegments: 1,
+  });
+  geo.center();
+  const m = new THREE.Mesh(geo, mat);
+  m.name = name;
+  m.castShadow = true;
+  return m;
+}
+
+/** One star on a little post — the `house` of this ladder. */
+function makeStar(name, variant) {
+  const g = new THREE.Group();
+  g.name = name;
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.005, 0.014, 12), MATS.white);
+  post.name = name + '_post'; post.position.y = 0.007;
+  post.castShadow = true; post.receiveShadow = true;
+  const star = starMesh(name + '_star', 0.0125, 0.004, MATS.brass);
+  star.position.y = 0.026;
+  // a shelf of identical stars looks stamped, so lean each one differently
+  star.rotation.set(0, 0, ((variant % 3) - 1) * 0.18);
+  g.add(post, star);
+  return g;
+}
+
+/** Five stars over a ribboned plaque — the top of the ladder. */
+function makeCertificate(name) {
+  const g = new THREE.Group();
+  g.name = name;
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.022, 0.008, 20), MATS.white);
+  base.name = name + '_base'; base.position.y = 0.004;
+  base.castShadow = true; base.receiveShadow = true;
+  const plaque = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.046, 0.006), MATS.wall);
+  plaque.name = name + '_plaque'; plaque.position.y = 0.031; plaque.castShadow = true;
+  const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.008, 0.0075), MATS.red);
+  ribbon.name = name + '_ribbon'; ribbon.position.y = 0.019; ribbon.castShadow = true;
+  g.add(base, plaque, ribbon);
+
+  // the five stars it is named for: four in a row, one raised above
+  for (let k = 0; k < 4; k++) {
+    const s = starMesh(name + '_s' + k, 0.0052, 0.002, MATS.brass);
+    s.position.set(-0.0117 + k * 0.0078, 0.036, 0.0045);
+    g.add(s);
+  }
+  const crown = starMesh(name + '_crown', 0.0105, 0.0035, MATS.brass);
+  crown.position.set(0, 0.062, 0.002);
+  g.add(crown);
+  return g;
+}
+
 function makeHouse(name, variant) {
+  if (BOARD.build && BOARD.build.kind === 'stars') return makeStar(name, variant);
   if (houseProtos.length) {
     const g = normalise(houseProtos[variant % houseProtos.length], 0.032, 0.040);
     g.name = name;
@@ -1113,7 +1192,9 @@ export class BoardView {
     const zRow = BAND / 2 - 0.03;
     if (n >= 5) {
       // the top upgrade is a tower, one of four so a built-out board has a skyline
-      const tw = towerProtos.length
+      const tw = (BOARD.build && BOARD.build.kind === 'stars')
+        ? makeCertificate('cert_' + i)
+        : towerProtos.length
         ? (() => { const t = normalise(towerProtos[i % towerProtos.length], 0.105, 0.048); t.name = 'tower_' + i; return t; })()
         : makeLighthouse('lighthouse_' + i);
       tw.position.set(0, 0.003, zRow);

@@ -628,6 +628,11 @@ const sanrio = {
     tileSub: 'rgba(107,84,104,0.62)', tileEdge: 'rgba(200,120,160,0.30)',
     accentInk: '#e0508a',
   },
+  // the real edition calls them Stars and 5-Star Certificates, so the board
+  // builds those rather than loading a house kit
+  build: { kind: 'stars' },
+  // gardens and squares, not stations — the anchor had to go
+  glyph: { ledger: '♡', pier: '❀', works: '✦' },
   centre: 'cake',
   labels: {
     start: 'Friendship Gate', jail: 'Time Out', rest: 'Picnic Spot',
