@@ -158,12 +158,22 @@ def classify(V, groups):
     order = sorted(info, key=lambda r: -info[r]['n'])
     part = {}
 
-    # The body is whatever stands on the ground. Taking the largest low island
-    # instead breaks on Cinnamoroll, whose tail outweighs his body and sits just
-    # clear of the floor -- that hands the tail the body role and inverts the rig.
-    standing = [r for r in order if info[r]['bot'] < 0.02]
-    body = standing[0] if standing else next((r for r in order if info[r]['cy'] < 0.36), order[0])
-    part[body] = 'body'
+    # An island running most of the model's height is trunk, whatever else it
+    # looks like. Pompompurin arrives as a front half and a back half that each
+    # run floor to crown and are not mirror images of each other, so neither the
+    # seam merge nor the rules below can pair them -- without this they read as a
+    # body and a head stacked in the same place.
+    trunk = [r for r in order if (info[r]['top'] - info[r]['bot']) > 0.70]
+    if trunk:
+        for r in trunk:
+            part[r] = 'body'
+    else:
+        # Otherwise the body is whatever stands on the ground. Taking the largest
+        # low island instead breaks on Cinnamoroll, whose tail outweighs his body
+        # and sits just clear of the floor -- that hands the tail the body role.
+        standing = [r for r in order if info[r]['bot'] < 0.02]
+        body = standing[0] if standing else next((r for r in order if info[r]['cy'] < 0.36), order[0])
+        part[body] = 'body'
     # The head is the highest thing sitting over the middle, not the biggest.
     # Cinnamoroll's tail outweighs his head and is just as centred, so picking by
     # size puts the tail on his shoulders. The size floor keeps a stray speck of
@@ -176,7 +186,9 @@ def classify(V, groups):
         part[head] = 'head'
     for r in order:
         if r in part: continue
-        if info[r]['top'] > 0.62:
+        # high *and* off to one side. Height alone made ears of Pompompurin's
+        # beret, which sits dead centre on top of him.
+        if info[r]['top'] > 0.62 and info[r]['ax'] > 0.12:
             part[r] = 'ear-r' if info[r]['cx'] > 0 else 'ear-l'
     for r in order:
         if r in part: continue
@@ -188,7 +200,10 @@ def classify(V, groups):
             part[r] = 'arm-r' if info[r]['cx'] > 0 else 'arm-l'
     for r in order:
         if r not in part:
-            part[r] = 'head' if info[r]['cy'] > 0.55 else 'body'
+            # with no head identified there is nothing for a high leftover to
+            # belong to, so it rides the body -- which is how a beret on a dog
+            # with no neck should behave anyway
+            part[r] = 'head' if (head is not None and info[r]['cy'] > 0.55) else 'body'
     return part, info
 
 
@@ -292,9 +307,19 @@ def build_glb(parts, tex_path, name):
         gltf['nodes'].append({'name': part, 'mesh': len(gltf['meshes']) - 1})
         node_of[part] = len(gltf['nodes']) - 1
 
+    def parent_for(part):
+        """Nearest ancestor this model actually has. Pompompurin has ears but no
+        head -- his beret and muzzle are welded into one trunk -- and without
+        walking the chain his ears would hang off the root and sit perfectly
+        still while his body swayed underneath them."""
+        p = PARENT.get(part)
+        while p is not None and p not in node_of:
+            p = PARENT.get(p)
+        return p
+
     # hierarchy, and each node sits at its hinge relative to its parent's hinge
     for part, ni in node_of.items():
-        parent = PARENT.get(part)
+        parent = parent_for(part)
         hinge = parts[part][4]
         if parent in node_of:
             ph = parts[parent][4]

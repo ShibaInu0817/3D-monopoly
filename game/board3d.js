@@ -485,10 +485,10 @@ function makePuppet(model, height) {
      Kuromi's at 31%, which is enough to make one fixed angle overshoot for him
      and fall short for her. Solve for the angle instead: head travel is roughly
      2·A·lift, and the Kenney rig's idle moves its head 3.7% of token height. */
-  const lift = P.head ? Math.abs(rest.head.y) : 0;
-  const idleSway = lift > 1e-4
-    ? THREE.MathUtils.clamp(0.040 * H / (2 * lift), 0.02, 0.14)
-    : 0.05;
+  // Pompompurin has no head node at all — he is one fused trunk with a beret —
+  // so stand in half his height, which is about where a head would have been.
+  const lift = P.head && Math.abs(rest.head.y) > 1e-4 ? Math.abs(rest.head.y) : 0.5 * H;
+  const idleSway = THREE.MathUtils.clamp(0.040 * H / (2 * lift), 0.02, 0.14);
 
   let clip = 'idle', t = 0, ends = 0, then = null;
   let earX = [0, 0], earVX = [0, 0], earZ = [0, 0], earVZ = [0, 0], prevY = 0;
@@ -637,6 +637,11 @@ function makePuppet(model, height) {
 
 const CLIP_LOOP = { idle: true, walk: true, sprint: true, sit: false, crouch: false, die: false };
 
+/* How wide a piece may be, relative to its height, before it starts being scaled
+   down for it. The widest Kenney mini is 1.16; this sits just above that so the
+   existing crew is untouched. */
+const MAX_FOOT = 1.22;
+
 /** character piece on a coloured plinth, rigged and normalised to a fixed height */
 export function makeCharacterToken(hex, name, index) {
   const g = new THREE.Group();
@@ -699,7 +704,19 @@ export function makeCharacterToken(hex, name, index) {
   const box = new THREE.Box3().setFromObject(model);
   const size = new THREE.Vector3();
   box.getSize(size);
-  const s = 0.086 / (size.y || 1);
+  /* Height alone is not size. The Kenney crew all sit between 0.97 and 1.16 as
+     wide as they are tall; Cinnamoroll is 2.05, because he is mostly ears, and
+     matched on height he read as roughly twice the piece everyone else is.
+     So fit the height, then back off if the footprint is unusually wide — the
+     same two-step `normalise` already does for kit buildings.
+     The square root matters: a hard cap shrank him until his silhouette was
+     *smaller* than the crew's, which is the same complaint upside down. This
+     lands his area inside the crew's range while letting the ears still overhang,
+     and leaves every piece under the limit — the minis, Kuromi, Pompompurin —
+     scaled exactly as before. */
+  const fit = 0.086 / (size.y || 1);
+  const over = (Math.max(size.x, size.z) * fit) / (0.086 * MAX_FOOT);
+  const s = over > 1 ? fit / Math.sqrt(over) : fit;
   model.scale.setScalar(s);
   model.position.set(-((box.min.x + box.max.x) / 2) * s, 0.008 - box.min.y * s, -((box.min.z + box.max.z) / 2) * s);
   g.add(model);

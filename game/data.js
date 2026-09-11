@@ -610,6 +610,8 @@ const SANRIO_CAST = [
     line: 'Keeps a list. You are on it.' },
   { url: './assets/sanrio/cast/cinnamoroll.glb', name: 'Cinnamoroll', role: 'barista',
     line: 'Flies to work on his ears.' },
+  { url: './assets/sanrio/cast/pompompurin.glb', name: 'Pompompurin', role: 'naps professionally',
+    line: 'Will get up. In a minute.' },
 ];
 
 const sanrio = {
