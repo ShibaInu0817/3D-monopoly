@@ -1,0 +1,319 @@
+<!--
+  Piece preview. Serve the repo root and open /assets/sanrio/preview.html.
+
+  The <base> below is load-bearing: data.js stores cast URLs as
+  './assets/sanrio/cast/…', and GLTFLoader resolves those against the document,
+  so without it a page living in this folder would look for
+  assets/sanrio/assets/sanrio/cast/…. With it, this page drives the real
+  makeCharacterToken pipeline rather than a second copy of the loading code,
+  which is the point — what you see here is what the board puts on a tile.
+-->
+<meta charset="utf-8">
+<title>Sanrio pieces — preview</title>
+<base href="/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+    "three/addons/loaders/GLTFLoader.js": "https://unpkg.com/three@0.184.0/examples/jsm/loaders/GLTFLoader.js",
+    "three/addons/utils/BufferGeometryUtils.js": "https://unpkg.com/three@0.184.0/examples/jsm/utils/BufferGeometryUtils.js",
+    "three/addons/utils/SkeletonUtils.js": "https://unpkg.com/three@0.184.0/examples/jsm/utils/SkeletonUtils.js"
+  }
+}
+</script>
+
+<style>
+  :root {
+    --paper: #fff6fa; --ink: #5b4657; --soft: #9a8494;
+    --line: #f2d2e2; --edge: #e5bcd2; --accent: #e0508a; --chip: #ffe6f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font: 14px/1.55 "M PLUS Rounded 1c", ui-rounded, system-ui, sans-serif;
+    display: grid; grid-template-columns: 1fr 300px; height: 100vh;
+  }
+  @media (max-width: 820px) { body { grid-template-columns: 1fr; grid-template-rows: 1fr auto; } }
+
+  .stage { position: relative; min-width: 0; min-height: 0; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  canvas:active { cursor: grabbing; }
+  .hint {
+    position: absolute; left: 14px; bottom: 12px; pointer-events: none;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--soft);
+    background: #fff; border: 1px solid var(--edge);
+    padding: 4px 10px; border-radius: 999px;
+  }
+  .now {
+    position: absolute; left: 14px; top: 12px;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    background: #fff; border: 1px solid var(--edge); color: var(--soft);
+    padding: 4px 10px; border-radius: 999px;
+  }
+
+  .side {
+    border-left: 1px solid var(--line); background: #fff;
+    padding: 18px 16px 28px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
+  }
+  @media (max-width: 820px) { .side { border-left: 0; border-top: 1px solid var(--line); max-height: 46vh; } }
+
+  h1 { font-size: 16px; font-weight: 800; margin: 0; }
+  h1 span { color: var(--accent); }
+  .lbl {
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--soft); display: block; margin-bottom: 7px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 5px; }
+  button {
+    font: 500 12px/1 "M PLUS Rounded 1c", sans-serif;
+    padding: 7px 11px; border: 1px solid var(--edge); background: #fff;
+    color: var(--ink); border-radius: 999px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+
+  .facts {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--soft);
+    background: var(--chip); border-radius: 10px; padding: 10px 12px;
+    display: grid; grid-template-columns: auto 1fr; gap: 3px 10px;
+  }
+  .facts b { color: var(--ink); font-weight: 500; }
+  .note { font-size: 11.5px; color: var(--soft); }
+</style>
+
+<div class="stage">
+  <canvas id="view"></canvas>
+  <div class="now" id="now">idle</div>
+  <div class="hint">drag to orbit · scroll to zoom</div>
+</div>
+
+<div class="side">
+  <h1>Pieces <span>♡</span></h1>
+
+  <div><span class="lbl">Board</span><div class="row" id="boards"></div></div>
+  <div><span class="lbl">Character</span><div class="row" id="cast"></div></div>
+  <div><span class="lbl">Action</span><div class="row" id="clips"></div></div>
+
+  <div>
+    <span class="lbl">Selected model</span>
+    <div class="facts" id="facts"></div>
+  </div>
+
+  <div><span class="lbl">Compare</span>
+    <div class="row"><button id="ref" aria-pressed="false">Kenney rig alongside</button></div>
+    <p class="note" id="refNote">Stands a rigged crew member next to this piece playing the same
+      action — the only honest way to tell whether a procedural clip matches the real one.</p>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import * as D from './game/data.js';
+import { makeCharacterToken, loadPieces, applyLook, MATS, CHARACTERS } from './game/board3d.js';
+
+const $ = id => document.getElementById(id);
+const canvas = $('view');
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;   // the board's own settings
+renderer.toneMappingExposure = 1.05;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(32, 1, 0.01, 40);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xefb4cd, 0.85));
+const key = new THREE.DirectionalLight(0xfff8fb, 1.25);
+key.position.set(0.35, 0.7, 0.55);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -0.3, right: 0.3, top: 0.3, bottom: -0.3, near: 0.05, far: 3 });
+key.shadow.bias = -0.0006;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xffe6f0, 0.35);
+fill.position.set(-0.5, 0.35, -0.4);
+scene.add(fill);
+
+const floor = new THREE.Mesh(new THREE.CircleGeometry(6, 64), MATS.table);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+let boardId = 'sanrio', castIdx = 0, clip = 'idle', showRef = false;
+let piece = null, refPiece = null;
+
+function clear(tok) { if (tok) { scene.remove(tok); } }
+
+function triangles(model) {
+  let n = 0;
+  model.traverse(o => {
+    if (!o.isMesh && !o.isSkinnedMesh) return;
+    const g = o.geometry;
+    n += (g.index ? g.index.count : g.attributes.position.count) / 3;
+  });
+  return Math.round(n);
+}
+
+const RIG_PARTS = ['body', 'head', 'ear-l', 'ear-r', 'arm-l', 'arm-r', 'foot-l', 'foot-r'];
+
+function showFacts() {
+  const m = piece && piece.userData.model;
+  if (!m) { $('facts').innerHTML = '<span>piece</span><b>procedural pawn</b>'; return; }
+  const parts = RIG_PARTS.filter(p => m.getObjectByName(p));
+  const rows = [
+    ['triangles', triangles(m).toLocaleString()],
+    ['driven by', piece.userData.puppet ? 'puppet (no skeleton)' : 'AnimationMixer'],
+    ['actions', (piece.userData.clips || []).length],
+  ];
+  if (parts.length) rows.push(['rig parts', parts.join(' ')]);
+  $('facts').innerHTML = rows.map(([k, v]) => `<span>${k}</span><b>${v}</b>`).join('');
+}
+
+/** The reference is the first cast member that is NOT a puppet — on a Sanrio
+ *  board that is one of the Kenney minis filling the unconverted seats. */
+function refIndex() {
+  for (let i = 0; i < CHARACTERS.length; i++) {
+    const t = makeCharacterToken(0x2f6f9e, 'probe', i);
+    const isPuppet = !!t.userData.puppet;
+    if (!isPuppet && t.userData.model) return i;
+  }
+  return -1;
+}
+
+function place() {
+  clear(piece); clear(refPiece); piece = refPiece = null;
+
+  piece = makeCharacterToken(D.PLAYER_COLORS[castIdx % 4].hex, 'preview', castIdx);
+  piece.scale.setScalar(1);
+  piece.position.x = showRef ? -0.055 : 0;
+  scene.add(piece);
+  if (piece.userData.play) piece.userData.play(clip);
+
+  if (showRef) {
+    const ri = refIndex();
+    if (ri >= 0) {
+      refPiece = makeCharacterToken(0x9aa7b5, 'reference', ri);
+      refPiece.position.x = 0.055;
+      scene.add(refPiece);
+      if (refPiece.userData.play) refPiece.userData.play(clip);
+      $('refNote').textContent = 'Reference: ' + CHARACTERS[ri].name + ', on the Kenney rig.';
+    } else {
+      $('refNote').textContent = 'Every piece on this board is already rigged — nothing to compare against.';
+    }
+  }
+  renderClips();
+  showFacts();
+  framing();
+}
+
+function renderBoards() {
+  $('boards').innerHTML = Object.entries(D.BOARDS)
+    .map(([id, b]) => `<button data-board="${id}" aria-pressed="${id === boardId}">${b.name}</button>`).join('');
+}
+function renderCast() {
+  $('cast').innerHTML = CHARACTERS.map((c, i) =>
+    `<button data-cast="${i}" aria-pressed="${i === castIdx}">` +
+    `<span class="sw" style="background:${D.PLAYER_COLORS[i % 4].css}"></span>${c.name}</button>`).join('');
+}
+function renderClips() {
+  const list = (piece && piece.userData.clips) || [];
+  if (!list.includes(clip)) clip = list[0] || 'idle';
+  // straight from the piece, so a puppet offers its thirteen and a rigged
+  // character its thirty-two, with no list here to fall out of date
+  $('clips').innerHTML = list.map(c =>
+    `<button data-clip="${c}" aria-pressed="${c === clip}">${c}</button>`).join('');
+  $('now').textContent = clip;
+}
+
+const HELD = new Set(['sit', 'crouch', 'drive', 'die', 'static', 'fall',
+  'holding-right', 'holding-left', 'holding-both', 'wheelchair-sit']);
+
+function play(name) {
+  clip = name;
+  [piece, refPiece].forEach(t => {
+    if (t && t.userData.play) t.userData.play(name, HELD.has(name) ? {} : { then: 'idle' });
+  });
+  renderClips();
+}
+
+async function selectBoard(id) {
+  boardId = id;
+  D.setBoard(id);
+  applyLook();                       // the floor is the board's own table felt
+  scene.background = new THREE.Color(0xffdcea);
+  await loadPieces();
+  castIdx = 0; clip = 'idle';
+  renderBoards(); renderCast(); place();
+}
+
+$('boards').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (b) selectBoard(b.dataset.board);
+});
+$('cast').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  castIdx = +b.dataset.cast; renderCast(); place();
+});
+$('clips').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (b) play(b.dataset.clip);
+});
+$('ref').addEventListener('click', () => {
+  showRef = !showRef;
+  $('ref').setAttribute('aria-pressed', String(showRef));
+  place();
+});
+
+/* ---- camera ---- */
+let yaw = 0.4, pitch = 0.18, dist = 0.30;
+const target = new THREE.Vector3(0, 0.048, 0);
+const framing = () => { dist = showRef ? 0.46 : 0.30; aim(); };
+function aim() {
+  camera.position.set(
+    target.x + dist * Math.cos(pitch) * Math.sin(yaw),
+    target.y + dist * Math.sin(pitch),
+    target.z + dist * Math.cos(pitch) * Math.cos(yaw));
+  camera.lookAt(target);
+}
+let drag = null;
+canvas.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => {
+  if (!drag) return;
+  yaw -= (e.clientX - drag.x) * 0.008;
+  pitch = Math.max(-0.25, Math.min(1.3, pitch + (e.clientY - drag.y) * 0.005));
+  drag = { x: e.clientX, y: e.clientY };
+  aim();
+});
+['pointerup', 'pointercancel'].forEach(t => canvas.addEventListener(t, () => { drag = null; }));
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  dist = Math.max(0.10, Math.min(1.2, dist + e.deltaY * 0.0004));
+  aim();
+}, { passive: false });
+
+function fit() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', fit);
+
+await selectBoard('sanrio');
+fit(); aim();
+
+let last = performance.now();
+(function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  [piece, refPiece].forEach(t => { if (t && t.userData.tick) t.userData.tick(dt); });
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+})(last);
+</script>

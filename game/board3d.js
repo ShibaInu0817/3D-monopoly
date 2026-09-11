@@ -479,6 +479,17 @@ function makePuppet(model, height) {
   const rest = {};
   Object.keys(P).forEach(n => { rest[n] = P[n].position.clone(); });
 
+  /* The head is a child of the body, so its own y is how far it sits above the
+     hinge the body rotates around — and the same tilt swings a high head much
+     further than a low one. Cinnamoroll's head sits at 42% of his height and
+     Kuromi's at 31%, which is enough to make one fixed angle overshoot for him
+     and fall short for her. Solve for the angle instead: head travel is roughly
+     2·A·lift, and the Kenney rig's idle moves its head 3.7% of token height. */
+  const lift = P.head ? Math.abs(rest.head.y) : 0;
+  const idleSway = lift > 1e-4
+    ? THREE.MathUtils.clamp(0.040 * H / (2 * lift), 0.02, 0.14)
+    : 0.05;
+
   let clip = 'idle', t = 0, ends = 0, then = null;
   let earX = [0, 0], earVX = [0, 0], earZ = [0, 0], earVZ = [0, 0], prevY = 0;
 
@@ -574,11 +585,25 @@ function makePuppet(model, height) {
       }
 
     } else {                                   // idle
-      const f = t * 1.7;
-      b.position.y += Math.sin(f) * 0.009 * H;
-      b.rotation.z = Math.sin(t * 0.85) * 0.014;
-      if (h) { h.rotation.z = Math.sin(t * 0.72) * 0.055; h.rotation.x = Math.sin(f) * 0.030; }
-      swingArms(Math.sin(f) * 0.07);
+      /* Matched against the Kenney rig's own idle, measured at the head node:
+         it travels 3.7% of token height forward and back, 0.6% vertically, on a
+         1.33s cycle. The first version of this bobbed 1.65% vertically, swayed
+         not at all and ran a 4s cycle, which is why it read as dead rather than
+         as quiet. The sway is the motion that carries it; the bob only supports. */
+      const f = t * 4.72;                      // 2π / 1.33s
+      b.rotation.x = Math.sin(f) * idleSway;   // the breath
+      /* Deliberately small. The head sits forward of the hinge, so the tilt
+         above already arcs it up and down — most of the vertical travel is that,
+         not this. What this is for is the ear spring, which reads body vertical
+         velocity and would have nothing to chew on in idle without it. */
+      b.position.y += (1 - Math.cos(f)) * 0.0007 * H;
+      b.rotation.z = Math.sin(t * 1.9) * 0.016;
+      if (h) {
+        // the head lags the chest a little, so the two do not move as one block
+        h.rotation.x = Math.sin(f - 0.6) * -0.022;
+        h.rotation.z = Math.sin(t * 1.5) * 0.055;
+      }
+      swingArms(Math.sin(f - 0.35) * 0.09);
     }
 
     /* Ears trail the body's vertical velocity, so they flick a beat late on
