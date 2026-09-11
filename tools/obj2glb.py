@@ -198,12 +198,54 @@ def classify(V, groups):
         if r in part: continue
         if 0.14 < info[r]['cy'] < 0.44 and info[r]['ax'] > 0.08:
             part[r] = 'arm-r' if info[r]['cx'] > 0 else 'arm-l'
+    # Leftovers join whichever part actually encloses them. Height alone put My
+    # Melody's nose and muzzle on her body while her hood was the head, so her
+    # face sat still while her head turned.
+    def box_of(name):
+        vs = [i for r in groups if part.get(r) == name for i in groups[r]]
+        if not vs:
+            return None
+        return [min(V[i][j] for i in vs) for j in range(3)] + \
+               [max(V[i][j] for i in vs) for j in range(3)]
+
+    boxes = {n: box_of(n) for n in ('head', 'body')}
     for r in order:
-        if r not in part:
-            # with no head identified there is nothing for a high leftover to
-            # belong to, so it rides the body -- which is how a beret on a dog
-            # with no neck should behave anyway
-            part[r] = 'head' if (head is not None and info[r]['cy'] > 0.55) else 'body'
+        if r in part:
+            continue
+        c = (info[r]['cx'], None, None)
+        vs = groups[r]
+        cen = [(min(V[i][j] for i in vs) + max(V[i][j] for i in vs)) / 2 for j in range(3)]
+        inside = []
+        for n, b in boxes.items():
+            if b and all(b[j] <= cen[j] <= b[j + 3] for j in range(3)):
+                vol = (b[3] - b[0]) * (b[4] - b[1]) * (b[5] - b[2])
+                inside.append((vol, n))
+        if inside:
+            part[r] = min(inside)[1]            # the snuggest box that holds it
+        elif boxes['head'] and head is not None:
+            # outside both: go to whichever centre it sits nearer
+            def near(n):
+                b = boxes[n]
+                mid = [(b[j] + b[j + 3]) / 2 for j in range(3)]
+                return sum((cen[j] - mid[j]) ** 2 for j in range(3))
+            part[r] = 'head' if near('head') < near('body') else 'body'
+        else:
+            part[r] = 'body'
+
+    # An ear that never reaches outside the head's own silhouette is not an
+    # appendage, it is the top of the head. My Melody's reach -0.05 beyond hers
+    # sideways -- they are the crown of her hood -- so rotating them opened a
+    # hole at the base. Cinnamoroll's reach +0.63, Kuromi's +0.19 and
+    # Pompompurin's +0.04, and all three swing without tearing.
+    hb = box_of('head')
+    eb = box_of('ear-l')
+    if hb and eb:
+        out = max(hb[0] - eb[0], eb[3] - hb[3]) / max(hb[3] - hb[0], 1e-6)
+        if out <= 0.0:
+            for r in list(part):
+                if part[r] in ('ear-l', 'ear-r'):
+                    part[r] = 'head'
+
     return part, info
 
 
