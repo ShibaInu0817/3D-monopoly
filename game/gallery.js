@@ -37,6 +37,14 @@ let renderer, scene, camera, stage, piece, mixerClock;
 let pieceIndex = 0, current = 'idle', boardId = Object.keys(BOARDS)[0];
 let clipNames = [];
 let spin = 0, drag = null, ready = false;
+/* Framing, recomputed per piece. It used to be a fixed camera that suited the
+   Kenney minis, who are all one height; the Sanrio cast is not, because the
+   footprint rule scales a wide piece down and a narrow one up, and the tall end
+   of that was being cropped. Width matters as much as height — Cinnamoroll is
+   twice as wide as he is tall — and the canvas is whatever shape the layout
+   gives it, so the distance is solved against the live aspect in frame(). */
+const FOV = 30;
+let viewMid = 0.05, viewTall = 0.17, viewWide = 0.17;
 
 function buildStage() {
   const canvas = $('galCanvas');
@@ -93,9 +101,11 @@ function frame(now) {
     piece.rotation.y = spin;
     if (piece.userData.tick) piece.userData.tick(dt);
   }
-  const r = 0.3;
-  camera.position.set(Math.sin(0) * r, 0.13, r);
-  camera.lookAt(0, 0.05, 0);
+  const half = Math.tan(FOV / 2 * Math.PI / 180);
+  const dist = Math.max(viewTall / (2 * half),
+                        viewWide / (2 * half * (camera.aspect || 1)));
+  camera.position.set(0, viewMid + dist * 0.15, dist);
+  camera.lookAt(0, viewMid, 0);
   renderer.render(scene, camera);
   nextFrame(frame);
 }
@@ -106,6 +116,14 @@ function setPiece(i) {
   piece = makeCharacterToken(PLAYER_COLORS[i % 4].hex, 'gallery_piece', i);
   piece.scale.setScalar(1.9);
   stage.add(piece);
+
+  // frame this piece: centre on its middle, and record what has to fit. A piece
+  // spins, so the width to clear is its diagonal, not its front-on width.
+  piece.updateMatrixWorld(true);
+  const b = new THREE.Box3().setFromObject(piece);
+  viewMid = (b.min.y + b.max.y) / 2;
+  viewTall = Math.max(b.max.y - b.min.y, 0.01) * 1.25;
+  viewWide = Math.max(Math.hypot(b.max.x - b.min.x, b.max.z - b.min.z), 0.01) * 1.15;
   // a rigless piece reports the puppet's clip names instead of the mixer's
   clipNames = (piece.userData.clips || []).slice();
   // the clip buttons depend on the piece, so they are rebuilt with it
