@@ -8,6 +8,10 @@ temp/
 *.dc.html
 .thumbnail
 
+# Python bytecode from the tools/
+__pycache__/
+*.pyc
+
 # OS + editor noise
 .DS_Store
 Thumbs.db

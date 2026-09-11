@@ -608,6 +608,8 @@ const SANRIO_GROUPS = [
 const SANRIO_CAST = [
   { url: './assets/sanrio/cast/kuromi.glb', name: 'Kuromi', role: 'rival',
     line: 'Keeps a list. You are on it.' },
+  { url: './assets/sanrio/cast/cinnamoroll.glb', name: 'Cinnamoroll', role: 'barista',
+    line: 'Flies to work on his ears.' },
 ];
 
 const sanrio = {

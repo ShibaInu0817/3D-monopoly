@@ -3,7 +3,8 @@
 
 The rips arrive as .obj/.mtl/.fbx/.dae plus a texture, carry no skeleton, and are a
 single mesh -- but the mesh falls apart into disconnected islands that line up with
-anatomy. This splits those islands into named nodes (body, head, ears, arms, feet),
+anatomy, some of them mirrored into left and right halves which are rejoined first.
+This splits those islands into named nodes (body, head, ears, arms, feet),
 parents them, and writes a GLB whose texture is embedded, so one file drops straight
 into `loadPiece()` and `makeCharacterToken` has real parts to animate.
 
@@ -87,6 +88,52 @@ def islands(V, tris):
     return groups, find
 
 
+def merge_mirror_halves(V, groups, eps=1e-4):
+    """Some rips are modelled as a mirrored left and right half, so a single part
+    arrives as two islands meeting on the x=0 seam. Kuromi's islands are whole
+    parts; Cinnamoroll's head, body and tail are each cut down the middle.
+
+    Pair two islands only when every one of these holds: equal vertex counts,
+    both touching the midline, exactly mirrored X ranges, and matching Y and Z.
+    That strictness is the whole point -- testing "touches the midline" alone
+    would swallow Kuromi's eight central detail islands, and testing "mirrored"
+    alone would fuse her left and right ears into one part.
+
+    Returns the merged groups plus a remap from every original island root to the
+    root that now represents it."""
+    box = {}
+    for r, vs in groups.items():
+        gx = [V[i][0] for i in vs]; gy = [V[i][1] for i in vs]; gz = [V[i][2] for i in vs]
+        box[r] = (len(vs), min(gx), max(gx), min(gy), max(gy), min(gz), max(gz))
+
+    remap = {r: r for r in groups}
+    merged = {r: list(vs) for r, vs in groups.items()}
+    taken = set()
+    order = sorted(groups, key=lambda r: -box[r][0])
+    on_seam = lambda x0, x1: abs(x0) < eps or abs(x1) < eps
+
+    for i, a in enumerate(order):
+        if a in taken:
+            continue
+        na, ax0, ax1, ay0, ay1, az0, az1 = box[a]
+        if not on_seam(ax0, ax1):
+            continue
+        for b in order[i + 1:]:
+            if b in taken:
+                continue
+            nb, bx0, bx1, by0, by1, bz0, bz1 = box[b]
+            if nb != na or not on_seam(bx0, bx1):
+                continue
+            if (abs(ax0 + bx1) < 1e-3 and abs(ax1 + bx0) < 1e-3
+                    and abs(ay0 - by0) < 1e-3 and abs(ay1 - by1) < 1e-3
+                    and abs(az0 - bz0) < 1e-3 and abs(az1 - bz1) < 1e-3):
+                merged[a].extend(merged.pop(b))
+                remap[b] = a
+                taken.add(a); taken.add(b)
+                break
+    return merged, remap
+
+
 def classify(V, groups):
     """Map islands onto body parts using proportions, not absolute coordinates, so
     the same rules survive a differently-scaled character.
@@ -104,16 +151,27 @@ def classify(V, groups):
         info[root] = dict(n=len(verts),
                           cx=(min(gx) + max(gx)) / 2,
                           cy=((min(gy) + max(gy)) / 2 - y0) / H,
+                          bot=(min(gy) - y0) / H,
                           top=(max(gy) - y0) / H,
                           ax=abs((min(gx) + max(gx)) / 2) / W)
 
     order = sorted(info, key=lambda r: -info[r]['n'])
     part = {}
 
-    body = next((r for r in order if info[r]['cy'] < 0.36), order[0])
+    # The body is whatever stands on the ground. Taking the largest low island
+    # instead breaks on Cinnamoroll, whose tail outweighs his body and sits just
+    # clear of the floor -- that hands the tail the body role and inverts the rig.
+    standing = [r for r in order if info[r]['bot'] < 0.02]
+    body = standing[0] if standing else next((r for r in order if info[r]['cy'] < 0.36), order[0])
     part[body] = 'body'
-    head = next((r for r in order
-                 if r not in part and 0.28 < info[r]['cy'] < 0.80 and info[r]['ax'] < 0.20), None)
+    # The head is the highest thing sitting over the middle, not the biggest.
+    # Cinnamoroll's tail outweighs his head and is just as centred, so picking by
+    # size puts the tail on his shoulders. The size floor keeps a stray speck of
+    # ear trim near the top of the model from winning instead.
+    floor_n = 0.05 * sum(info[r]['n'] for r in info)
+    centred = [r for r in order
+               if r not in part and info[r]['ax'] < 0.20 and info[r]['n'] >= floor_n]
+    head = max(centred, key=lambda r: info[r]['cy']) if centred else None
     if head is not None:
         part[head] = 'head'
     for r in order:
@@ -293,13 +351,15 @@ def main():
     name = args.name or os.path.splitext(os.path.basename(args.obj))[0]
 
     groups, find = islands(V, tris)
+    remap = {r: r for r in groups}
     if args.flat:
         part_of = {r: 'body' for r in groups}
         info = {}
     else:
+        groups, remap = merge_mirror_halves(V, groups)
         part_of, info = classify(V, groups)
 
-    vert_part = {i: part_of[find(i)] for i in range(len(V))}
+    vert_part = {i: part_of[remap[find(i)]] for i in range(len(V))}
     by_part = defaultdict(list)
     for t in tris:
         by_part[vert_part[t[0][0]]].append(t)
