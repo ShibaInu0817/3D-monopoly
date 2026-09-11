@@ -764,7 +764,14 @@ export function makeCharacterToken(hex, name, index) {
      and leaves every piece under the limit — the minis, Kuromi, Pompompurin —
      scaled exactly as before. */
   const fit = 0.086 / (size.y || 1);
-  const ratio = Math.max(size.x, size.z) / (size.y || 1);
+  /* Only a rigless piece gets measured for width. Box3 on a skinned mesh reports
+     the bind pose, not the pose on screen — char-01 stands with her arms down but
+     her bind pose measures 1.42 wide, so the cap shrank her 7% for a shape nobody
+     ever sees. The Kenney crew are all one height by construction anyway; it is
+     the converted models, whose proportions are whatever the rip happened to be,
+     that this rule exists for. */
+  const rigless = !proto.clips.length;
+  const ratio = rigless ? Math.max(size.x, size.z) / (size.y || 1) : 1;
   const s = ratio > MAX_FOOT ? fit / Math.sqrt(ratio / MAX_FOOT)
     : ratio < MIN_FOOT ? fit * Math.sqrt(MIN_FOOT / ratio)
     : fit;
