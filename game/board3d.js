@@ -490,6 +490,14 @@ function makePuppet(model, height) {
   const lift = P.head && Math.abs(rest.head.y) > 1e-4 ? Math.abs(rest.head.y) : 0.5 * H;
   const idleSway = THREE.MathUtils.clamp(0.040 * H / (2 * lift), 0.02, 0.14);
 
+  /* A piece with fewer parts has fewer places to put the motion. Pompompurin is
+     a trunk and two ears — no head to roll, no arms to swing — so his idle came
+     out at half the travel of the others. Where a part is missing the body takes
+     over the job, and a piece with no limbs at all gets squash and stretch,
+     which is what you reach for when animating something with no limbs. */
+  const noHead = !P.head;
+  const noArms = !P['arm-l'] && !P['arm-r'];
+
   let clip = 'idle', t = 0, ends = 0, then = null;
   let earX = [0, 0], earVX = [0, 0], earZ = [0, 0], earVZ = [0, 0], prevY = 0;
 
@@ -507,7 +515,13 @@ function makePuppet(model, height) {
     const b = P.body, h = P.head;
 
     // every clip writes from a clean slate, so they never accumulate
-    Object.keys(P).forEach(n => { P[n].position.copy(rest[n]); P[n].rotation.set(0, 0, 0); });
+    Object.keys(P).forEach(n => {
+      P[n].position.copy(rest[n]); P[n].rotation.set(0, 0, 0); P[n].scale.set(1, 1, 1);
+    });
+
+    /** Breathe by changing shape rather than by moving a limb. Volume is roughly
+     *  kept, so it reads as squash rather than as growing. */
+    const squash = q => b.scale.set(1 - q * 0.6, 1 + q, 1 - q * 0.6);
 
     const swingArms = a => {
       if (P['arm-l']) P['arm-l'].rotation.x = a;
@@ -530,6 +544,15 @@ function makePuppet(model, height) {
       if (h) h.rotation.x = -lean * 0.75 + Math.sin(f * 2) * 0.02;
       swingArms(Math.sin(f) * (fast ? 0.95 : 0.55));
       stepFeet(Math.sin(f) * step, Math.sin(f) * step * 0.45);
+      if (noArms) {
+        /* Nothing swinging and nothing stepping, so the weight shifts instead.
+           Kept small on purpose: a legless walk needs the waddle to read as a
+           walk at all, but the body was already travelling about as far as the
+           others' — the first pass at this doubled it. */
+        b.rotation.y = Math.sin(f) * (fast ? 0.075 : 0.048);
+        b.rotation.z += Math.sin(f) * (fast ? 0.018 : 0.012);
+        squash(Math.abs(Math.sin(f)) * (fast ? 0.013 : 0.008));
+      }
 
     } else if (clip === 'jump') {
       const j = Math.min(1, t / PUPPET_ONCE.jump);
@@ -597,13 +620,18 @@ function makePuppet(model, height) {
          not this. What this is for is the ear spring, which reads body vertical
          velocity and would have nothing to chew on in idle without it. */
       b.position.y += (1 - Math.cos(f)) * 0.0007 * H;
-      b.rotation.z = Math.sin(t * 1.9) * 0.016;
+      // with no head, its roll belongs to the body — otherwise nothing rolls
+      b.rotation.z = Math.sin(t * 1.9) * (noHead ? 0.055 : 0.016);
       if (h) {
         // the head lags the chest a little, so the two do not move as one block
         h.rotation.x = Math.sin(f - 0.6) * -0.022;
         h.rotation.z = Math.sin(t * 1.5) * 0.055;
       }
       swingArms(Math.sin(f - 0.35) * 0.09);
+      if (noArms) {
+        b.rotation.y = Math.sin(t * 1.2) * 0.05;
+        squash(Math.sin(f) * 0.022);
+      }
     }
 
     /* Ears trail the body's vertical velocity, so they flick a beat late on
