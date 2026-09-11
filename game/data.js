@@ -600,8 +600,10 @@ const SANRIO_GROUPS = [
   { name: 'Star Avenue',     color: 0xb094e0, houseCost: 200 },
 ];
 
-/* The cast fills up as characters are converted. Each entry replaces one of the
-   twelve Mini Characters, so the board stays playable at every step:
+/* The whole cast, and the whole cast there is — this board offers these four and
+   nothing else, where the others field twelve. Four seats is the table maximum
+   (PLAYER_COLORS), so a full game still gives everyone their own character; the
+   last seat simply has one left to take rather than nine.
        python3 tools/obj2glb.py temp/<Name>/<Name>.obj assets/sanrio/cast/<name>.glb
    The models carry no skeleton, so `play()` falls through to the procedural clips
    in board3d rather than an AnimationMixer. */
@@ -612,13 +614,15 @@ const SANRIO_CAST = [
     line: 'Flies to work on his ears.' },
   { url: './assets/sanrio/cast/pompompurin.glb', name: 'Pompompurin', role: 'naps professionally',
     line: 'Will get up. In a minute.' },
+  { url: './assets/sanrio/cast/mymelody.glb', name: 'My Melody', role: 'florist',
+    line: 'Insists Kuromi is going through something.' },
 ];
 
 const sanrio = {
   id: 'sanrio', name: 'Sanrio Friends',
   blurb: 'Buy the whole town, one candy shop at a time, and be nice about it.',
   currency: '♡', groups: SANRIO_GROUPS,
-  cast: SANRIO_CAST.concat(DEFAULT_CAST.slice(SANRIO_CAST.length)),
+  cast: SANRIO_CAST,
   /* Pale pinks all read as white under ACES at exposure 1.05 — the first pass
      had frame, paper and table within a few percent of each other and the board
      lost its edge entirely. The frame sits clearly darker than the paper, and

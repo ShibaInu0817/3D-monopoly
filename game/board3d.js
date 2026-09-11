@@ -680,10 +680,16 @@ function makePuppet(model, height) {
 
 const CLIP_LOOP = { idle: true, walk: true, sprint: true, sit: false, crouch: false, die: false };
 
-/* How wide a piece may be, relative to its height, before it starts being scaled
-   down for it. The widest Kenney mini is 1.16; this sits just above that so the
-   existing crew is untouched. */
+/* How wide a piece may be, relative to its height, before it is scaled down for
+   it — and how narrow before it is scaled up. The Kenney crew run 0.97 to 1.16,
+   so both limits sit just outside them and the existing crew is untouched.
+   Cinnamoroll is 2.05 and was reading as twice the piece; My Melody is 0.62 and
+   was reading as half of one. */
 const MAX_FOOT = 1.22;
+/* 0.85 was too eager: it lifted My Melody until her ear tips cleared everyone
+   else's, which is the same complaint the other way up. 0.80 leaves Kuromi at
+   0.82 exactly where she was and still brings My Melody alongside her. */
+const MIN_FOOT = 0.80;
 
 /** character piece on a coloured plinth, rigged and normalised to a fixed height */
 export function makeCharacterToken(hex, name, index) {
@@ -758,8 +764,10 @@ export function makeCharacterToken(hex, name, index) {
      and leaves every piece under the limit — the minis, Kuromi, Pompompurin —
      scaled exactly as before. */
   const fit = 0.086 / (size.y || 1);
-  const over = (Math.max(size.x, size.z) * fit) / (0.086 * MAX_FOOT);
-  const s = over > 1 ? fit / Math.sqrt(over) : fit;
+  const ratio = Math.max(size.x, size.z) / (size.y || 1);
+  const s = ratio > MAX_FOOT ? fit / Math.sqrt(ratio / MAX_FOOT)
+    : ratio < MIN_FOOT ? fit * Math.sqrt(MIN_FOOT / ratio)
+    : fit;
   model.scale.setScalar(s);
   model.position.set(-((box.min.x + box.max.x) / 2) * s, 0.008 - box.min.y * s, -((box.min.z + box.max.z) / 2) * s);
   g.add(model);

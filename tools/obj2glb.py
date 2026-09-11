@@ -399,10 +399,17 @@ def main():
         hx, hy, hz = hinge_for(part, pts_of[part], floor)
         seen, pos, nor, uv, idx = {}, [], [], [], []
         for t in ts:
-            for key in t:
+            for corner in t:
+                vi, ti, ni = corner
+                # Key on the values, not the OBJ's indices. My Melody is exported
+                # with a separate vt and vn per corner -- 8442 of each for 1957
+                # positions -- so keying on indices shared nothing and tripled
+                # her vertex count. By value she comes back to 2687.
+                key = (V[vi],
+                       VT[ti] if ti >= 0 else None,
+                       VN[ni] if ni >= 0 else None)
                 if key not in seen:
                     seen[key] = len(pos) // 3
-                    vi, ti, ni = key
                     pos.extend([V[vi][0] - hx, V[vi][1] - hy, V[vi][2] - hz])
                     nor.extend(VN[ni] if ni >= 0 else (0.0, 1.0, 0.0))
                     u, v = VT[ti] if ti >= 0 else (0.0, 0.0)
