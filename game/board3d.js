@@ -499,7 +499,8 @@ function makePuppet(model, height) {
   const noArms = !P['arm-l'] && !P['arm-r'];
 
   let clip = 'idle', t = 0, ends = 0, then = null;
-  let earX = [0, 0], earVX = [0, 0], earZ = [0, 0], earVZ = [0, 0], prevY = 0;
+  let earX = [0, 0], earVX = [0, 0], earZ = [0, 0], earVZ = [0, 0];
+  let earY = [0, 0], earVY = [0, 0], prevY = 0;
 
   function has(name) { return PUPPET_CLIPS.indexOf(name) >= 0; }
 
@@ -578,11 +579,18 @@ function makePuppet(model, height) {
       swingArms(-k * 0.8);
 
     } else if (clip === 'emote-yes') {
-      if (h) h.rotation.x = Math.sin(t * 11) * 0.30;
-      b.position.y += Math.abs(Math.sin(t * 11)) * 0.012 * H;
+      const nod = Math.sin(t * 11);
+      if (h) h.rotation.x = nod * 0.30;
+      // nothing to nod with, so he bows from the waist and squashes on the beat
+      else { b.rotation.x = nod * 0.21; squash(Math.abs(nod) * 0.026); }
+      b.position.y += Math.abs(nod) * 0.012 * H;
 
     } else if (clip === 'emote-no') {
-      if (h) h.rotation.y = Math.sin(t * 10) * 0.38;
+      const shake = Math.sin(t * 10);
+      if (h) h.rotation.y = shake * 0.38;
+      // this clip was a head turn and nothing else, so a piece without one stood
+      // perfectly still through it — the whole body turns instead
+      else { b.rotation.y = shake * 0.34; b.rotation.z = shake * 0.07; }
 
     } else if (clip === 'pick-up') {
       const k = Math.min(1, t / PUPPET_ONCE['pick-up']);
@@ -639,17 +647,24 @@ function makePuppet(model, height) {
        a rigid mesh reading as a slid-around statue. */
     const vy = (b.position.y - prevY) / Math.max(dt, 1e-4);
     prevY = b.position.y;
+    // ears hang off the head where there is one and off the body where there is
+    // not, so they lag whichever of the two is actually turning
+    const drv = h || b;
     ['ear-l', 'ear-r'].forEach((n, i) => {
       const ear = P[n];
       if (!ear) return;
       const side = i === 0 ? -1 : 1;
-      const hx = h ? h.rotation.x : 0, hz = h ? h.rotation.z : 0;
-      const tx = THREE.MathUtils.clamp(-vy / H * 0.55, -0.75, 0.75) - hx * 0.6;
-      const tz = (-hz * 0.9 + THREE.MathUtils.clamp(-vy / H * 0.12, -0.2, 0.2)) * side;
+      const tx = THREE.MathUtils.clamp(-vy / H * 0.55, -0.75, 0.75) - drv.rotation.x * 0.6;
+      const tz = (-drv.rotation.z * 0.9 + THREE.MathUtils.clamp(-vy / H * 0.12, -0.2, 0.2)) * side;
+      // only a headless piece twists its whole body, and only then do the ears
+      // have a yaw to trail — for everyone else this stays parked at zero
+      const ty = h ? 0 : -b.rotation.y * 0.7;
       [earX[i], earVX[i]] = springStep(earX[i], earVX[i], tx, 150, 13, dt);
       [earZ[i], earVZ[i]] = springStep(earZ[i], earVZ[i], tz, 110, 12, dt);
+      [earY[i], earVY[i]] = springStep(earY[i], earVY[i], ty, 120, 12, dt);
       ear.rotation.x = earX[i];
       ear.rotation.z = earZ[i];
+      ear.rotation.y = earY[i];
     });
 
     if (ends && t >= ends) {
