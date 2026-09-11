@@ -194,9 +194,19 @@ def classify(V, groups):
         if r in part: continue
         if info[r]['top'] < 0.08:
             part[r] = 'foot-r' if info[r]['cx'] > 0 else 'foot-l'
+    # An arm hangs beside the body, below the head. My Melody's eyes sit at the
+    # same height and the same offset from the middle as an arm would, so they
+    # were classified as a pair of arms and swung off her face. What separates
+    # them is that an arm is mostly below the head and an eye is entirely inside
+    # it: above the head's base, Kuromi's arms are 7% and Cinnamoroll's 0%,
+    # against 100% for her eyes.
+    head_bot = info[head]['bot'] if head is not None else 1.0
     for r in order:
         if r in part: continue
         if 0.14 < info[r]['cy'] < 0.44 and info[r]['ax'] > 0.08:
+            span = info[r]['top'] - info[r]['bot']
+            above = (info[r]['top'] - head_bot) / span if span > 1e-6 else 1.0
+            if above > 0.30: continue
             part[r] = 'arm-r' if info[r]['cx'] > 0 else 'arm-l'
     # Leftovers join whichever part actually encloses them. Height alone put My
     # Melody's nose and muzzle on her body while her hood was the head, so her
