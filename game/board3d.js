@@ -416,28 +416,31 @@ function normalise(src, height, maxFoot) {
 
 export async function loadBuildings() {
   const kit = BOARD.build || CITY_BUILD;
-  if (kit.kind === 'stars') {                   // built from geometry, nothing to fetch
-    buildKey = 'stars';
-    houseProtos = []; towerProtos = [];
-    sceneProps.clear();
-    return;
-  }
-  const key = kit.houses.concat(kit.towers).join('|');
+  // `stars` builds its houses from geometry and has nothing to fetch for them —
+  // but a board like that may still bring scenery, so props load either way
+  const stars = kit.kind === 'stars';
+  const extra = kit.props || [];
+  const key = (kit.kind || 'kit') + '|' +
+    (stars ? extra : kit.houses.concat(kit.towers, extra)).join('|');
   if (key === buildKey) return;                 // already holding this board's kit
   buildKey = key;
   houseProtos = []; towerProtos = [];
-  const loader = new GLTFLoader();
-  const [houses, towers] = await Promise.all([
-    Promise.all(kit.houses.map(u => loader.loadAsync(u))),
-    Promise.all(kit.towers.map(u => loader.loadAsync(u))),
-  ]);
-  if (key !== buildKey) return;                 // a board switch overtook us
-  houses.forEach(g => houseProtos.push(g.scene));
-  towers.forEach(g => towerProtos.push(g.scene));
-
   sceneProps.clear();
-  const extra = kit.props || [];
+  const loader = new GLTFLoader();
+
+  if (!stars) {
+    const [houses, towers] = await Promise.all([
+      Promise.all(kit.houses.map(u => loader.loadAsync(u))),
+      Promise.all(kit.towers.map(u => loader.loadAsync(u))),
+    ]);
+    if (key !== buildKey) return;               // a board switch overtook us
+    houses.forEach(g => houseProtos.push(g.scene));
+    towers.forEach(g => towerProtos.push(g.scene));
+  }
+
+  if (!extra.length) return;
   const loaded = await Promise.all(extra.map(u => loader.loadAsync(u).catch(() => null)));
+  if (key !== buildKey) return;
   loaded.forEach((g, i) => { if (g) sceneProps.set(extra[i].split('/').pop().replace('.glb', ''), g.scene); });
 }
 
@@ -1016,6 +1019,21 @@ function makeCake(name) {
   return g;
 }
 
+/** The Sanrio board's middle: a shrine garden on its own grass plinth, built by
+ *  tools/shrine.py and dropped in whole rather than assembled here. Height first,
+ *  then capped to the island, so it sits inside the lagoon like the wreck does.
+ *  Falls back to the cake it replaced if the model has not loaded. */
+function makeShrine(name) {
+  const src = sceneProps.get('shrine');
+  if (!src) return makeCake(name);
+  const g = new THREE.Group();
+  g.name = name;
+  const model = normalise(src, 0.20, 0.46);
+  model.name = name + '_diorama';
+  g.add(model);
+  return g;
+}
+
 /** A little town on the island: kit towers ringed by houses. Falls back to the
  *  procedural tower until the city kit has loaded. */
 function makeSkyline(name) {
@@ -1163,14 +1181,21 @@ export class BoardView {
       : BOARD.centre === 'tower' ? makeTower('centre_tower')
       : BOARD.centre === 'crystal' ? makeCrystal('centre_crystal')
       : BOARD.centre === 'cake' ? makeCake('centre_cake')
+      : BOARD.centre === 'shrine' ? makeShrine('centre_shrine')
       : makeLighthouse('centre_lighthouse');
-    // a town and a wreck both fill the middle: centred, and they must not turn
-    const wide = BOARD.centre === 'skyline' || BOARD.centre === 'wreck';
+    // ask what actually got built, not what the board asked for: with the model
+    // missing the shrine is a cake, and a cake wants its own ring and its spin
+    const shrine = BOARD.centre === 'shrine' && sceneProps.has('shrine');
+    // a town, a wreck and a shrine all fill the middle: centred, and they must
+    // not turn — a shrine has a front, and half a turn would hide the torii
+    const wide = BOARD.centre === 'skyline' || BOARD.centre === 'wreck' || shrine;
     // a cake is round, so it sits centred like those two but still turns — a
     // slowly revolving cake is the whole point of putting one there
-    const centred = wide || BOARD.centre === 'cake';
+    const centred = wide || BOARD.centre === 'cake' || BOARD.centre === 'shrine';
+    // the shrine was normalised to the island in makeShrine; the rest are sized here
     centre.scale.setScalar(BOARD.centre === 'skyline' ? 1.7
       : BOARD.centre === 'wreck' ? 1.45
+      : shrine ? 1
       : BOARD.centre === 'lighthouse' ? 1.7 : 1.5);
     centre.position.set(centred ? 0 : -0.03, TOP + 0.016, centred ? 0 : -0.02);
     G.add(centre);
