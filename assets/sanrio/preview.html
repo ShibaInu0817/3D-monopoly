@@ -1,5 +1,7 @@
 <!--
-  Piece preview. Serve the repo root and open /assets/sanrio/preview.html.
+  Preview for what this board brings of its own: its four pieces, and the shrine
+  that sits in the middle of it. Serve the repo root and open
+  /assets/sanrio/preview.html.
 
   The <base> below is load-bearing: data.js stores cast URLs as
   './assets/sanrio/cast/…', and GLTFLoader resolves those against the document,
@@ -9,7 +11,7 @@
   which is the point — what you see here is what the board puts on a tile.
 -->
 <meta charset="utf-8">
-<title>Sanrio pieces — preview</title>
+<title>Sanrio preview — pieces and shrine</title>
 <base href="/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -93,18 +95,24 @@
 </div>
 
 <div class="side">
-  <h1>Pieces <span>♡</span></h1>
+  <h1>Preview <span>♡</span></h1>
 
+  <div><span class="lbl">Subject</span><div class="row" id="subjects"></div></div>
   <div><span class="lbl">Board</span><div class="row" id="boards"></div></div>
-  <div><span class="lbl">Character</span><div class="row" id="cast"></div></div>
-  <div><span class="lbl">Action</span><div class="row" id="clips"></div></div>
+  <div id="castRow"><span class="lbl">Character</span><div class="row" id="cast"></div></div>
+  <div id="clipRow"><span class="lbl">Action</span><div class="row" id="clips"></div></div>
+
+  <div id="partsRow" hidden><span class="lbl">Parts</span>
+    <div class="row" id="parts"></div>
+    <p class="note" id="partsNote"></p>
+  </div>
 
   <div>
     <span class="lbl">Selected model</span>
     <div class="facts" id="facts"></div>
   </div>
 
-  <div><span class="lbl">Compare</span>
+  <div id="compareRow"><span class="lbl">Compare</span>
     <div class="row"><button id="ref" aria-pressed="false">Kenney rig alongside</button></div>
     <p class="note" id="refNote">Stands a rigged crew member next to this piece playing the same
       action — the only honest way to tell whether a procedural clip matches the real one.</p>
@@ -114,7 +122,7 @@
 <script type="module">
 import * as THREE from 'three';
 import * as D from './game/data.js';
-import { makeCharacterToken, loadPieces, applyLook, MATS, CHARACTERS } from './game/board3d.js';
+import { makeCharacterToken, loadPieces, loadBuildings, makeShrine, applyLook, MATS, CHARACTERS } from './game/board3d.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('view');
@@ -148,6 +156,8 @@ scene.add(floor);
 
 let boardId = 'sanrio', castIdx = 0, clip = 'idle', showRef = false;
 let piece = null, refPiece = null;
+// 'pieces' or 'shrine' — the board's cast, or the model in the middle of it
+let subject = 'pieces', shrine = null;
 
 function clear(tok) { if (tok) { scene.remove(tok); } }
 
@@ -163,7 +173,27 @@ function triangles(model) {
 
 const RIG_PARTS = ['body', 'head', 'ear-l', 'ear-r', 'arm-l', 'arm-r', 'foot-l', 'foot-r'];
 
+/** The model's own nodes, under the root node shrine.py names. Absent means the
+ *  GLB never loaded and makeShrine handed back the cake instead. */
+function shrineParts() {
+  const root = shrine && shrine.getObjectByName('shrine-diorama');
+  return root ? root.children : [];
+}
+
 function showFacts() {
+  if (subject === 'shrine') {
+    const parts = shrineParts();
+    const size = new THREE.Box3().setFromObject(shrine).getSize(new THREE.Vector3());
+    const mats = new Set();
+    shrine.traverse(o => { if (o.isMesh) mats.add(o.material.name || o.material.uuid); });
+    $('facts').innerHTML = [
+      ['triangles', triangles(shrine).toLocaleString()],
+      ['nodes', parts.length || 'cake fallback'],
+      ['materials', mats.size],
+      ['on the board', size.x.toFixed(2) + ' × ' + size.y.toFixed(2) + ' × ' + size.z.toFixed(2)],
+    ].map(([k, v]) => `<span>${k}</span><b>${v}</b>`).join('');
+    return;
+  }
   const m = piece && piece.userData.model;
   if (!m) { $('facts').innerHTML = '<span>piece</span><b>procedural pawn</b>'; return; }
   const parts = RIG_PARTS.filter(p => m.getObjectByName(p));
@@ -213,6 +243,34 @@ function place() {
   framing();
 }
 
+/** Built through the board's own factory, after the board's own loader — so a
+ *  broken model shows up here as the cake, exactly as it would in a game. */
+async function buildShrine() {
+  clear(piece); clear(refPiece); piece = refPiece = null;
+  if (shrine) scene.remove(shrine);
+  await loadBuildings();
+  shrine = makeShrine('preview_shrine');
+  scene.add(shrine);
+  renderParts(); showFacts(); framing();
+}
+
+function renderSubjects() {
+  $('subjects').innerHTML = [['pieces', 'Pieces'], ['shrine', 'Shrine']]
+    .map(([id, name]) => `<button data-subject="${id}" aria-pressed="${id === subject}">${name}</button>`).join('');
+  const p = subject === 'pieces';
+  ['castRow', 'clipRow', 'compareRow'].forEach(id => { $(id).hidden = !p; });
+  $('partsRow').hidden = p;
+}
+
+function renderParts() {
+  const parts = shrineParts();
+  $('parts').innerHTML = parts.map(p =>
+    `<button data-part="${p.name}" aria-pressed="${p.visible}">${p.name}</button>`).join('');
+  $('partsNote').textContent = parts.length
+    ? 'One button per node in the GLB. Switch a node off to see what sits behind it.'
+    : 'This board has no shrine to show, so the centre is the cake it falls back to.';
+}
+
 function renderBoards() {
   $('boards').innerHTML = Object.entries(D.BOARDS)
     .map(([id, b]) => `<button data-board="${id}" aria-pressed="${id === boardId}">${b.name}</button>`).join('');
@@ -250,9 +308,33 @@ async function selectBoard(id) {
   scene.background = new THREE.Color(0xffdcea);
   await loadPieces();
   castIdx = 0; clip = 'idle';
-  renderBoards(); renderCast(); place();
+  renderBoards(); renderCast();
+  if (subject === 'shrine') await buildShrine(); else place();
 }
 
+async function selectSubject(s) {
+  subject = s;
+  renderSubjects();
+  // the shrine belongs to one board, so asking for it asks for that board
+  if (s === 'shrine' && boardId !== 'sanrio') await selectBoard('sanrio');
+  else if (s === 'shrine') await buildShrine();
+  else {
+    if (shrine) { scene.remove(shrine); shrine = null; }
+    place();
+  }
+  $('now').textContent = s === 'shrine' ? 'shrine' : clip;
+}
+
+$('subjects').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (b) selectSubject(b.dataset.subject);
+});
+$('parts').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const node = shrineParts().find(p => p.name === b.dataset.part);
+  if (!node) return;
+  node.visible = !node.visible;
+  b.setAttribute('aria-pressed', String(node.visible));
+});
 $('boards').addEventListener('click', e => {
   const b = e.target.closest('button'); if (b) selectBoard(b.dataset.board);
 });
@@ -273,7 +355,13 @@ $('ref').addEventListener('click', () => {
 /* ---- camera ---- */
 let yaw = 0.4, pitch = 0.18, dist = 0.30;
 const target = new THREE.Vector3(0, 0.048, 0);
-const framing = () => { dist = showRef ? 0.46 : 0.30; aim(); };
+const framing = () => {
+  // the shrine comes out of makeShrine at the size the board gives it, which is
+  // several times a token — it needs its own distance and its own eye height
+  if (subject === 'shrine') { dist = 0.74; target.set(0, 0.072, 0); }
+  else { dist = showRef ? 0.46 : 0.30; target.set(0, 0.048, 0); }
+  aim();
+};
 function aim() {
   camera.position.set(
     target.x + dist * Math.cos(pitch) * Math.sin(yaw),
@@ -306,7 +394,11 @@ function fit() {
 }
 addEventListener('resize', fit);
 
+// ?subject=shrine opens straight on the model, the way the harnesses take a query
+const wanted = new URLSearchParams(location.search).get('subject');
+renderSubjects();
 await selectBoard('sanrio');
+if (wanted === 'shrine') await selectSubject('shrine');
 fit(); aim();
 
 let last = performance.now();

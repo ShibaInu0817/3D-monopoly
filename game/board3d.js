@@ -1022,8 +1022,11 @@ function makeCake(name) {
 /** The Sanrio board's middle: a shrine garden on its own grass plinth, built by
  *  tools/shrine.py and dropped in whole rather than assembled here. Height first,
  *  then capped to the island, so it sits inside the lagoon like the wreck does.
- *  Falls back to the cake it replaced if the model has not loaded. */
-function makeShrine(name) {
+ *  Falls back to the cake it replaced if the model has not loaded.
+ *
+ *  Exported because the preview page shows it, and showing it through the same
+ *  factory the board uses is the point — including the fallback. */
+export function makeShrine(name) {
   const src = sceneProps.get('shrine');
   if (!src) return makeCake(name);
   const g = new THREE.Group();
