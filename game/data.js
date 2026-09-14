@@ -581,23 +581,29 @@ const MINI_NAMES = [
 export const DEFAULT_CAST = MINI_CAST.map((c, i) => ({ ...c, ...MINI_NAMES[i] }));
 
 /* ---------------- Sanrio ----------------
-   Cloned from MONOPOLY: Hello Kitty and Friends (USAopoly / The Op) wherever the
-   real edition gives us something to copy: houses are Stars and hotels 5-Star
-   Certificates, Chance is Adventures, Community Chest is Parties, and the four
-   railroads are gardens and squares rather than stations. The confirmed property
-   names from that edition are used verbatim; the rest follow its
-   Character’s-Place pattern. */
+   Cloned from MONOPOLY: Hello Kitty and Friends (USAopoly / The Op), and by now
+   read straight off a photo of the retail board rather than inferred: houses are
+   Stars and hotels 5-Star Certificates, Chance is Adventures, Community Chest is
+   Celebrations, and the four railroads are gardens and squares rather than
+   stations. All 22 property names, prices and colour sets are the printed ones.
+   Only the four corners stay ours — the board just says GO and FREE PARKING,
+   where the flavour copy here wants a Friendship Gate and a Picnic Spot. */
 const SANRIO_GROUPS = [
-  // pushed well past pastel on purpose — at tile size a soft pink and a soft
-  // peach are the same colour, and a Monopoly board lives on telling sets apart
-  { name: 'Strawberry Lane', color: 0xff9dba, houseCost: 50 },
-  { name: 'Cafe Row',        color: 0xc89a6e, houseCost: 50 },
-  { name: 'Sweet Street',    color: 0xffd45e, houseCost: 100 },
-  { name: 'Playtime Park',   color: 0x7fdcae, houseCost: 100 },
-  { name: 'Melody Market',   color: 0xdd7fc0, houseCost: 150 },
-  { name: 'Ribbon Quarter',  color: 0xffab7d, houseCost: 150 },
-  { name: 'Dream Heights',   color: 0x7cc3f0, houseCost: 200 },
-  { name: 'Star Avenue',     color: 0xb094e0, houseCost: 200 },
+  /* Sampled off the retail board, not guessed: the real edition keeps Monopoly's
+     classic eight sets, at the classic hex values, on the classic price ladder —
+     brown on the $60 pair through dark blue on $350/$400. Six of the eight came
+     back byte-identical; red and green sampled one step off (#ec1c24, #20b15a),
+     which is JPEG noise, so the canonical values stand. The bands print at full
+     saturation directly on white card with no keyline, which is why this board
+     sets `pastel: 0` — washing them toward white is what made them mushy. */
+  { name: 'Brown',      color: 0x955436, houseCost: 50 },
+  { name: 'Light Blue', color: 0xaae0fa, houseCost: 50 },
+  { name: 'Pink',       color: 0xd93a96, houseCost: 100 },
+  { name: 'Orange',     color: 0xf7941d, houseCost: 100 },
+  { name: 'Red',        color: 0xed1b24, houseCost: 150 },
+  { name: 'Yellow',     color: 0xfef200, houseCost: 150 },
+  { name: 'Green',      color: 0x1fb25a, houseCost: 200 },
+  { name: 'Dark Blue',  color: 0x0072bb, houseCost: 200 },
 ];
 
 /* The whole cast, and the whole cast there is — this board offers these four and
@@ -635,6 +641,9 @@ const sanrio = {
     tileTop: '#fffdfe', tileBot: '#ffeaf3', tileInk: '#5b4657',
     tileSub: 'rgba(107,84,104,0.62)', tileEdge: 'rgba(200,120,160,0.30)',
     accentInk: '#e0508a',
+    /* The official board prints its colour bands at full strength on white, so
+       don't dilute them — every other board still gets the default 0.06. */
+    pastel: 0,
   },
   // the real edition calls them Stars and 5-Star Certificates, so the board
   // builds those rather than loading a house kit
@@ -644,13 +653,13 @@ const sanrio = {
   centre: 'cake',
   labels: {
     start: 'Friendship Gate', jail: 'Time Out', rest: 'Picnic Spot',
-    chance: 'Adventures', ledger: 'Parties',
+    chance: 'Adventures', ledger: 'Celebrations',
     // the real edition renames the buildings, and the ladder still reads
     house: 'a star', houses: 'stars', hotel: 'a 5-star certificate',
     jailLine: 'is in Time Out, thinking about what happened.',
     jailDetail: 'Three turns, or roll doubles and say sorry properly.',
     startDetail: 'Everyone is waiting at the gate, and they brought snacks.',
-    taxDetail: 'The ribbon alone costs more than the gift.',
+    taxDetail: 'Even in a town this nice, somebody does the paperwork.',
     restLine: 'stops for a picnic and refuses to be hurried.',
     visitLine: 'waves at somebody sitting in Time Out.',
     winLine: 'owns the whole town',
@@ -659,46 +668,50 @@ const sanrio = {
     buyDetail: 'Nobody owns it yet. Be the first to be nice about it.',
     newsTitle: 'Town noticeboard',
   },
+  /* Position for position off the retail board, so every shop sits at the price
+     and colour it actually prints at. The four gardens and squares were already
+     right; the properties were not — most sat in the wrong colour set entirely.
+     Corners keep their themed names, which the flavour copy leans on. */
   tiles: g => [
     { kind: 'start', name: 'Friendship Gate' },
-    prop(g, 'My Melody’s Flower Shop', 0, 60),
-    { kind: 'ledger', name: 'Parties' },
-    prop(g, 'Kuromi’s Candy Shop', 0, 60),
-    { kind: 'tax', name: 'Gift Wrapping Fee', amount: 200 },
+    prop(g, 'Chococat’s Boba Shop', 0, 60),
+    { kind: 'ledger', name: 'Celebrations' },
+    prop(g, 'DokiDoki’s Burger Shack', 0, 60),
+    { kind: 'tax', name: 'Income Tax', amount: 200 },
     { kind: 'pier', name: 'Flower Garden', price: 200 },
-    prop(g, 'Cinnamoroll’s Coffee Shop', 1, 100),
+    prop(g, 'Tuxedosam’s Ice Cream Shop', 1, 100),
     { kind: 'chance', name: 'Adventures' },
-    prop(g, 'Chococat’s Boba Shop', 1, 100),
-    prop(g, 'Pompompurin’s Diner', 1, 120),
+    prop(g, 'Cinnamoroll’s Delivery Service', 1, 100),
+    prop(g, 'LittleTwinStars’ Spa', 1, 120),
     { kind: 'jail', name: 'Time Out' },
-    prop(g, 'DokiDoki’s Burger Shack', 2, 140),
-    { kind: 'works', name: 'The Rainbow Fountain', price: 150 },
-    prop(g, 'Keroppi’s Sushi Restaurant', 2, 140),
-    prop(g, 'Gudetama’s Egg Cafe', 2, 160),
+    prop(g, 'Chococat’s Auto Shop', 2, 140),
+    { kind: 'works', name: 'Electric', price: 150 },
+    prop(g, 'LittleTwinStars’ Movie Theater', 2, 140),
+    prop(g, 'Keroppi’s Sushi Restaurant', 2, 160),
     { kind: 'pier', name: 'Friendship Square', price: 200 },
-    prop(g, 'Badtz-maru’s Arcade', 3, 180),
-    { kind: 'ledger', name: 'Parties' },
-    prop(g, 'Pochacco’s Sports Arena', 3, 180),
-    prop(g, 'Tuxedosam’s Ice Rink', 3, 200),
+    prop(g, 'My Melody’s Music Store', 3, 180),
+    { kind: 'ledger', name: 'Celebrations' },
+    prop(g, 'Hello Kitty’s Café', 3, 180),
+    prop(g, 'Tuxedosam’s Boutique', 3, 200),
     { kind: 'rest', name: 'Picnic Spot' },
-    prop(g, 'Kuromi’s Music Shop', 4, 220),
+    prop(g, 'Pochacco’s Skate Shop', 4, 220),
     { kind: 'chance', name: 'Adventures' },
-    prop(g, 'My Melody’s Bakery', 4, 220),
-    prop(g, 'Hangyodon’s Aquarium', 4, 240),
+    prop(g, 'Keroppi’s Mini Mart', 4, 220),
+    prop(g, 'Badtz-maru’s Hair Salon', 4, 240),
     { kind: 'pier', name: 'Rainbow Harbor', price: 200 },
-    prop(g, 'Hello Kitty’s Ribbon Boutique', 5, 260),
-    prop(g, 'Wish Me Mell’s Post Office', 5, 260),
-    { kind: 'works', name: 'The Wishing Well', price: 150 },
-    prop(g, 'Chococat’s Bookstore', 5, 280),
+    prop(g, 'Hangyodon’s Aquatic Center', 5, 260),
+    prop(g, 'Pochacco’s Sports Arena', 5, 260),
+    { kind: 'works', name: 'Water', price: 150 },
+    prop(g, 'Cinnamoroll’s Coffee Shop', 5, 280),
     { kind: 'gotojail', name: 'Off To Time Out' },
-    prop(g, 'Little Twin Stars’ Spa', 6, 300),
-    prop(g, 'Cinnamoroll’s Sky Cafe', 6, 300),
-    { kind: 'ledger', name: 'Parties' },
-    prop(g, 'Pekkle’s Duck Pond', 6, 320),
+    prop(g, 'Kuromi’s Candy Shop', 6, 300),
+    prop(g, 'Pompompurin’s Diner', 6, 300),
+    { kind: 'ledger', name: 'Celebrations' },
+    prop(g, 'Badtz-maru’s Bowling Alley', 6, 320),
     { kind: 'pier', name: 'Sunshine Park', price: 200 },
     { kind: 'chance', name: 'Adventures' },
-    prop(g, 'Little Twin Stars’ Star Tower', 7, 350),
-    { kind: 'tax', name: 'Sparkle Tax', amount: 100 },
+    prop(g, 'My Melody’s Flower Shop', 7, 350),
+    { kind: 'tax', name: 'Renovation', amount: 100 },
     prop(g, 'Hello Kitty’s Hotel', 7, 400),
   ],
   chance: [
@@ -711,7 +724,7 @@ const sanrio = {
     { text: 'You win the friendship contest. Everyone claps. Collect ♡100.', cash: 100 },
     { text: 'Kuromi sold you concert tickets. They were not hers. Pay ♡75.', cash: -75 },
     { text: 'The parade is starting! Run to Friendship Square.', move: 15 },
-    { text: 'Badtz-maru saved you a machine. Go to his Arcade.', move: 16 },
+    { text: 'Badtz-maru saved you a lane. Go to his Bowling Alley.', move: 34 },
     { text: 'You punched the claw machine. It kept your ♡20.', cash: -20, act: 'attack-melee-right' },
     { text: 'You kicked the gumball machine. ♡60 fell out. Nobody saw.', cash: 60, act: 'attack-kick-right' },
   ],
