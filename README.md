@@ -2,14 +2,14 @@
   <a href="https://shibainu0817.github.io/3D-monopoly/"><img src="media/teaser.gif" alt="Pirate Cove: a roll of the dice, the camera follows the piece, a lot goes up for sale, then the bots take their turns" width="560"></a>
 </p>
 
-<h1 align="center">Property Board 3D</h1>
-<p align="center"><i>Buy lots, build, collect rent. Last player standing takes the map.</i></p>
+<h1 align="center">Landlord Island</h1>
+<p align="center"><i>The free 3D Monopoly alternative: buy lots, build, collect rent. Last player standing takes the map.</i></p>
 
 <p align="center">
   <a href="https://shibainu0817.github.io/3D-monopoly/"><img src="https://img.shields.io/badge/%E2%96%B6%20Play%20free-in%20your%20browser-c8613a?style=for-the-badge" alt="Play free in your browser"></a>
 </p>
 
-A property-trading board game in 3D, played in the browser on a phone, tablet or computer.
+Landlord Island is a property-trading board game in 3D, played in the browser on a phone, tablet or computer.
 Pick a board, pick a character, and roll: buy the lots you land on, finish colour sets, build them up and charge rent until everyone else is broke.
 Play with friends on one device, against bots, or online with each player on their own phone.
 
