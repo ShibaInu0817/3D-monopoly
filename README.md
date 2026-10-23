@@ -39,7 +39,6 @@ Play with friends on one device, against bots, or online with each player on the
 | **Jalan Malaysia** | Melaka to KLCC, priced in RM: states, highlands and night markets. |
 | **Hustle City** | Rise, grind, expense it. Rents are due Monday. |
 | **Pirate Cove** | A cursed crew, a sinking market, and rent due at high tide. |
-| **Sanrio Friends** | Stars, certificates and one very good hotel. |
 
 Each board has its own lots, prices, cards, pieces and island in the middle.
 
