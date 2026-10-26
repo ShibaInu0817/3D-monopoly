@@ -1,0 +1,13 @@
+Landlord Island: what the MIT License covers
+
+The MIT License in LICENSE applies to the source code only: game/, index.html
+and tools/.
+
+Not covered by it:
+  - 3D models in assets/. Most are by Kenney (www.kenney.nl) under CC0; see the
+    KENNEY-LICENSE.txt file in each folder. Any other model stays under its own
+    owner's rights and is not licensed by this project.
+  - The boards' names, text and art direction, and everything in media/ and
+    screens/: Copyright (c) 2026 ShibaInu0817. All rights reserved.
+
+You may use the code to make your own boards and games with your own content.

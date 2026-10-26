@@ -78,7 +78,9 @@ Games save on the device: **Resume** picks up where you left off.
 │  ├─ obj2glb.py           turns a character model into a riggable GLB
 │  └─ shrine.py            builds a low-poly diorama as a GLB
 ├─ media/                  teaser and screenshots for this README
-└─ screens/                design references
+├─ screens/                design references
+├─ LICENSE                 MIT, for the code
+└─ NOTICE                  what MIT doesn't cover: the 3D models, the boards' content and media
 ```
 
 ## Run and deploy
@@ -94,3 +96,5 @@ Opening `index.html` straight from disk doesn't work, because browsers block ES 
 - **Online play** needs no server of your own. Rooms run over public MQTT brokers (HiveMQ, Mosquitto, EMQX, tried in that order). They're free community services with no uptime guarantee, and anyone can read the messages, so keep nothing private in them.
 - **Deploy:** GitHub Pages serves `main` at https://shibainu0817.github.io/3D-monopoly/. Push to `main` and it updates. Pages caches for about 10 minutes, so two devices can briefly run different versions; `BUILD` in `game/net-mqtt.js` makes them refuse to join each other rather than fail silently. Bump it whenever the online message format changes.
 - **New board:** add an entry to `BOARDS` in `game/data.js` (lots, prices, colours, cards, labels, `look`). The menu, engine and 3D board all read from it.
+
+Code: MIT. The 3D models keep their own licences (mostly Kenney, CC0), and the boards' content and media are all rights reserved. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
