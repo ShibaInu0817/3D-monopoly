@@ -22,7 +22,7 @@ Play with friends on one device, against bots, or online with each player on the
     <td width="50%"><img src="media/screenshots/03-malaysia-board.jpg" alt="Jalan Malaysia: Melaka to KLCC, priced in RM"></td>
   </tr>
   <tr>
-    <td><img src="media/screenshots/05-ipoh-menu.jpg" alt="Pick your board: pace, starting budget, players, bots, and online rooms"></td>
+    <td><img src="media/screenshots/05-home.jpg" alt="The home screen: Play, Resume and online rooms on a paper sheet, over a live 3D board"></td>
     <td><img src="media/screenshots/06-pirates-select.jpg" alt="Character select: every player picks a 3D piece"></td>
   </tr>
   <tr>
