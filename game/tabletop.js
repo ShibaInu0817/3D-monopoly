@@ -1,5 +1,5 @@
 // The home screen's live table: the chosen board, built up, turning slowly while
-// four pieces hop around it (concept 3, "Tabletop lobby", in homescreen-designs.html).
+// four pieces hop around it (the "Tabletop lobby" home screen).
 // It owns its own WebGL renderer and gives it back before the game opens its own.
 
 import * as THREE from 'three';
