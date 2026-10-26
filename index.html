@@ -3,7 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Property Board — 3D</title>
+<title>Landlord Island: Monopoly Alternative · Free 3D Online Board Game</title>
+<meta name="description" content="Landlord Island is a free 3D Monopoly alternative: buy lots, build, collect rent. Play in your browser, against bots or online with friends.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Landlord Island: Monopoly Alternative · Free 3D Online Board Game">
+<meta property="og:description" content="Landlord Island is a free 3D Monopoly alternative: buy lots, build, collect rent. Play in your browser, against bots or online with friends.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=M+PLUS+Rounded+1c:wght@500;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -65,62 +69,89 @@
   body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
   .lbl { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--soft); }
 
-  /* ---------- menu ---------- */
-  #menu { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px 0;
-    background: var(--menuBg); transition: opacity .45s ease, transform .45s ease; overflow: auto; }
+  /* ---------- menu: the tabletop lobby ---------- */
+  /* A paper sheet over a live board (game/tabletop.js). The sheet borrows the HUD's
+     paper cards and lifted buttons, so the step from home screen to game is seamless. */
+  #menu { position: fixed; inset: 0; z-index: 20; overflow: hidden; background: var(--menuBg);
+    transition: opacity .45s ease, transform .45s ease, background-color .6s ease; }
   #menu.off { opacity: 0; transform: scale(1.04); pointer-events: none; }
   #menu[hidden] { display: none; }
-  .sheet { width: min(900px, 92vw); padding: 28px 36px 26px; background: var(--panel);
-    border: var(--edge); border-radius: calc(var(--r) + 8px); box-shadow: var(--lift); }
-  .sheet h1 { margin: 4px 0 2px; font-size: 36px; font-weight: 800; line-height: 1; letter-spacing: -0.01em; }
-  .sheet .tag { color: var(--soft); font-size: 14px; font-weight: 600; margin: 0 0 18px; }
-  .row { display: grid; gap: 8px; margin-bottom: 16px; }
-  .boards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .bcard { text-align: left; padding: 0; border: var(--edge); border-radius: var(--r); background: transparent;
-    color: var(--ink); cursor: pointer; overflow: hidden; transition: transform .18s cubic-bezier(.2,1.4,.4,1), box-shadow .2s; }
-  .bcard:hover { transform: translateY(-3px); }
-  .bcard[aria-pressed="true"] { box-shadow: var(--lift-sm); border-color: var(--ink); }
-  .bcard .art { height: 112px; display: grid; place-items: center; position: relative; }
-  .bcard .art svg { width: 100px; height: 100px; }
-  .bcard .cap { padding: 10px 14px 12px; display: grid; gap: 2px; }
-  .bcard .cap b { font-size: 17px; font-weight: 800; }
-  .bcard .cap span { font-size: 12.5px; font-weight: 600; color: var(--soft); }
-  .bcard[aria-pressed="true"] .cap { background: var(--ink); }
-  .bcard[aria-pressed="true"] .cap b { color: var(--paper); }
-  .bcard[aria-pressed="true"] .cap span { color: color-mix(in oklab, var(--paper) 70%, transparent); }
+  #tableCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .sheet { position: absolute; left: max(3.5vw, 16px); top: 50%; transform: translateY(-50%);
+    width: min(400px, 40vw); max-height: calc(100% - 32px); overflow-y: auto; padding: 26px 26px 22px;
+    background: var(--panel); border: var(--edge); border-radius: 26px; backdrop-filter: blur(6px);
+    box-shadow: var(--lift), 0 24px 60px rgba(40,50,70,0.18); }
+  .sheet h1 { margin: 8px 0 4px; font-size: clamp(34px, 4.4vw, 50px); font-weight: 800; line-height: .95; letter-spacing: -0.01em; }
+  .sheet h1 em { font-style: normal; color: var(--accent); }
+  .sheet .tag { margin: 0 0 18px; color: var(--soft); font-size: 14px; font-weight: 600; }
+  #btnStart { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 16px 18px 13px; border: 0; border-radius: 18px; background: var(--accent); color: #fff;
+    font-size: 22px; font-weight: 800; line-height: 1; font-family: inherit; box-shadow: 0 6px 0 #c9513f; cursor: pointer; }
+  #btnStart:active { transform: translateY(4px); box-shadow: 0 2px 0 #c9513f; }
+  #playSub { font-size: 13px; font-weight: 700; line-height: 1.2; opacity: .9; text-align: right; }
+  #btnResume { width: 100%; margin-top: 12px; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
+    padding: 10px 14px; border: var(--edge); border-radius: 16px; background: #fff; color: var(--ink);
+    text-align: left; font-family: inherit; box-shadow: var(--lift-sm); cursor: pointer; }
+  #btnResume[hidden] { display: none; }
+  #btnResume .sw { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+    background: linear-gradient(160deg, #ffe3bd, #f6b98f); font-size: 17px; font-weight: 800; }
+  #btnResume .rt b { display: block; font-size: 15px; font-weight: 800; }
+  #resumeSub { font-size: 12px; font-weight: 600; color: var(--soft); }
+  .tbRow { display: flex; gap: 8px; margin-top: 12px; }
+  .tbRow > * { flex: 1; min-width: 0; }
+  .tbBtn { padding: 12px 10px 10px; border: var(--edge); border-radius: 14px; background: #fff; color: var(--ink);
+    font-size: 14px; font-weight: 800; font-family: inherit; box-shadow: var(--lift-sm); cursor: pointer; }
+  .tbCode { display: flex; border: var(--edge); border-radius: 14px; background: #fff; box-shadow: var(--lift-sm); overflow: hidden; }
+  #joinCode { flex: 1; min-width: 0; width: auto; padding: 0 12px; border: 0; background: transparent; color: var(--ink);
+    font-size: 14px; font-weight: 800; line-height: 1; font-family: inherit; letter-spacing: .2em; text-transform: uppercase; }
+  #joinCode::placeholder { color: var(--soft); letter-spacing: .14em; }
+  #btnJoin { padding: 0 14px; border: 0; background: #2f3d52; color: #fff; font-size: 13px; font-weight: 800; font-family: inherit; cursor: pointer; }
+  .tbBtn:disabled, #btnJoin:disabled, #joinCode:disabled { opacity: .55; cursor: default; }
+  #setup { margin-top: 16px; padding-top: 14px; border-top: 2px dashed var(--line); }
+  #setup[hidden] { display: none; }
+  .row.opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+  .row.opts .col { display: grid; gap: 8px; align-content: start; }
+  .row.opts .col:nth-child(2) { grid-column: 1 / -1; }   /* the budget: three pills and a typed amount */
   .pills { display: flex; flex-wrap: wrap; gap: 8px; }
   .cashCustom { display: flex; align-items: center; }
-  #joinCode { width: 74px; text-transform: uppercase; letter-spacing: 0.14em; }
-  #cashInput, #joinCode { width: 92px; padding: 8px 12px; border-radius: 999px; border: var(--edge);
-    background: transparent; color: var(--ink); font: 700 13px/1 inherit; font-family: inherit; }
-  #cashInput::placeholder, #joinCode::placeholder { color: var(--soft); font-weight: 600; letter-spacing: 0; }
-  #joinCode { width: 112px; padding: 8px 12px; border-radius: 999px; border: var(--edge);
-    background: transparent; color: var(--ink); font: 800 13px/1 inherit; font-family: inherit; }
+  #cashInput { width: 92px; padding: 8px 12px; border-radius: 999px; border: var(--edge);
+    background: transparent; color: var(--ink); font-size: 13px; font-weight: 700; line-height: 1; font-family: inherit; }
+  #cashInput::placeholder { color: var(--soft); font-weight: 600; }
   #cashInput.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-  .row.opts { grid-template-columns: repeat(4, auto); align-items: start; gap: 18px; row-gap: 14px; }
-  .row.opts .col:last-child { justify-self: start; }
-  .row.opts .col { display: grid; gap: 8px; }
-  .pill { padding: 9px 16px; border-radius: 999px; border: var(--edge); background: transparent;
-    color: var(--ink); font-size: 13.5px; font-weight: 700; cursor: pointer;
+  .pill { padding: 8px 14px; border-radius: 999px; border: var(--edge); background: transparent;
+    color: var(--ink); font-size: 13px; font-weight: 700; cursor: pointer;
     transition: transform .16s cubic-bezier(.2,1.5,.4,1); display: flex; align-items: center; gap: 9px; }
   .pill:hover { transform: translateY(-2px); }
   .pill[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-  #btnResume { display: grid; gap: 3px; width: 100%; margin-bottom: 12px; padding: 13px 18px;
-    border-radius: var(--r); border: var(--edge); background: transparent; color: var(--ink);
-    cursor: pointer; text-align: left; font-family: inherit; }
-  #btnResume b { font-size: 15px; font-weight: 800; }
-  #btnResume span { font-size: 12px; font-weight: 600; color: var(--soft); }
-  #btnResume[hidden] { display: none; }
-  .startRow { display: flex; align-items: center; gap: 18px; margin-top: 6px; }
-  #btnStart { flex: 1; padding: 17px; font-size: 18px; font-weight: 800; border-radius: var(--r);
-    border: none; background: var(--ink); color: var(--paper); cursor: pointer;
-    transition: transform .16s cubic-bezier(.2,1.6,.4,1); }
-  #btnStart:hover { transform: translateY(-3px); }
-  #menuBlurb { color: var(--soft); font-size: 13px; font-weight: 600; max-width: 240px; }
-  #btnGallery { padding: 17px 22px; font-size: 15px; font-weight: 700; border-radius: var(--r);
-    border: var(--edge); background: transparent; color: var(--ink); cursor: pointer;
-    transition: transform .16s cubic-bezier(.2,1.6,.4,1); white-space: nowrap; }
-  #btnGallery:hover { transform: translateY(-3px); }
+  .tbFoot { display: flex; gap: 16px; margin-top: 18px; padding-top: 14px; border-top: 2px dashed var(--line); }
+  .tbFoot button { padding: 0; border: 0; background: none; color: var(--soft); font-size: 13.5px; font-weight: 700; font-family: inherit; cursor: pointer; }
+  .tbFoot button:hover, .tbFoot button[aria-expanded="true"] { color: var(--accent); }
+  #tableChip { position: absolute; right: max(3vw, 16px); bottom: max(4vh, 16px); max-width: min(440px, 52vw);
+    display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 18px;
+    background: var(--panel); border: var(--edge); border-radius: 999px; box-shadow: var(--lift-sm); }
+  .tcText { display: grid; min-width: 0; margin-right: 4px; }
+  .tcText .lbl { font-size: 9px; }
+  #tableName { font-size: 15px; font-weight: 800; line-height: 1.15; }
+  #menuBlurb { font-size: 12px; font-weight: 600; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #tableChip button { flex: none; width: 36px; height: 36px; border: 0; border-radius: 50%; background: #fff; color: var(--ink);
+    font-size: 19px; font-weight: 800; line-height: 1; font-family: inherit; box-shadow: 0 2px 0 rgba(0,0,0,0.08); cursor: pointer; }
+  .sheet button:focus-visible, .sheet input:focus-visible, #tableChip button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  /* phones held upright: the board on top, the sheet as a bottom sheet, the chip above the board */
+  @media (orientation: portrait), (max-width: 700px) {
+    .sheet { left: 12px; right: 12px; top: auto; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: auto;
+      transform: none; max-height: 64%; padding: 18px 18px 16px; border-radius: 22px; }
+    .sheet h1 { font-size: 34px; }
+    .sheet .tag { margin-bottom: 12px; font-size: 13px; }
+    #tableChip { left: 12px; right: 12px; top: calc(12px + env(safe-area-inset-top, 0px)); bottom: auto; max-width: none; }
+  }
+  /* short landscape screens (phones on their side) */
+  @media (max-height: 560px) and (orientation: landscape) {
+    .sheet { padding: 14px 18px 12px; width: min(360px, 44vw); }
+    .sheet h1 { font-size: 28px; }
+    .sheet .tag { display: none; }
+    #btnStart { padding: 11px 14px 9px; font-size: 18px; }
+    .tbFoot { margin-top: 10px; padding-top: 10px; }
+  }
 
   /* ---------- gallery ---------- */
   #gallery { position: fixed; inset: 0; z-index: 24; display: grid; place-items: center; padding: 18px;
@@ -182,48 +213,6 @@
   .galPreview.collect b { color: var(--good); }
   .galPreview.pay b { color: var(--bad); }
   .galPreview span { font-size: 13px; font-weight: 600; color: var(--soft); }
-  @media (max-width: 860px) {
-    .boards { grid-template-columns: 1fr 1fr; }
-  }
-  @media (max-height: 620px) {
-    .sheet { padding: 14px 24px 16px; }
-    .sheet h1 { font-size: 23px; margin: 2px 0 0; }
-    .sheet .tag { display: none; }
-    .sheet > .lbl { font-size: 9px; }
-    .row { gap: 5px; margin-bottom: 9px; }
-    .bcard .art { height: 62px; }
-    .bcard .art svg { width: 54px; height: 54px; }
-    .bcard .cap { padding: 6px 10px 7px; }
-    .bcard .cap b { font-size: 14px; }
-    .bcard .cap span { display: none; }
-    .lbl { font-size: 9px; }
-    .pill, #cashInput { padding: 6px 11px; font-size: 12px; }
-    #cashInput { width: 78px; }
-    .startRow { margin-top: 2px; }
-    #menuBlurb { display: none; }
-    #btnGallery, #btnStart { padding: 11px; font-size: 15px; }
-  }
-  @media (max-width: 560px) {
-    #menu { padding: 10px 0; place-items: start center; }
-    .sheet { padding: 20px 18px 22px; width: calc(100vw - 20px); }
-    .sheet h1 { font-size: 27px; }
-    .sheet .tag { font-size: 12.5px; margin-bottom: 14px; }
-    .boards { grid-template-columns: 1fr 1fr; gap: 8px; }
-    .bcard .art { height: 78px; }
-    .bcard .art svg { width: 68px; height: 68px; }
-    .bcard .cap { padding: 8px 10px 10px; }
-    .bcard .cap b { font-size: 14px; }
-    .bcard .cap span { font-size: 10.5px; }
-    .row.opts { grid-template-columns: 1fr 1fr; gap: 12px; }
-    /* Online is the widest control (Create room + code field + Join) and is now
-       the third column; give it the full width so it stops wrapping */
-    .row.opts .col:nth-child(3) { grid-column: 1 / -1; }
-    .pill { padding: 8px 13px; font-size: 12.5px; }
-    .startRow { flex-wrap: wrap; gap: 10px; }
-    #menuBlurb { max-width: none; flex-basis: 100%; order: -1; font-size: 12px; }
-    #btnGallery, #btnStart { padding: 15px; font-size: 15px; }
-    #btnStart { flex: 1 1 60%; }
-  }
   @media (max-width: 560px) {
     #gallery { padding: 10px; }
     .galSheet { width: 100%; height: calc(100vh - 20px); }
@@ -1093,105 +1082,21 @@
 
 <!-- ---------- menu ---------- -->
 <div id="menu">
+  <canvas id="tableCanvas" aria-hidden="true"></canvas>
   <div class="sheet">
-    <span class="lbl">PROPERTY TRADING · 3D · HOTSEAT OR ONLINE</span>
-    <h1>Pick your board</h1>
+    <span class="lbl">3D · HOTSEAT OR ONLINE</span>
+    <h1>Landlord <em>Island</em></h1>
     <p class="tag">Buy lots, build, collect rent. Last player standing takes the map.</p>
 
-    <div class="row">
-      <div class="boards">
-        <button class="bcard" data-pick="board" data-val="ipoh" aria-pressed="true">
-          <span class="art" style="background:linear-gradient(160deg,#f6e3c8,#dcb98c)">
-            <svg viewBox="0 0 120 120" fill="none">
-              <rect x="10" y="10" width="100" height="100" rx="10" fill="#fdf6e8" stroke="#7a5230" stroke-width="3"/>
-              <rect x="26" y="26" width="68" height="68" rx="6" fill="#f0dcc0"/>
-              <ellipse cx="60" cy="64" rx="26" ry="17" fill="#fff9ee" stroke="#7a5230" stroke-width="3"/>
-              <path d="M40 60 q20 12 40 0" stroke="#c98a3c" stroke-width="4" fill="none"/>
-              <path d="M46 44 q4 -9 -2 -14 M60 42 q4 -10 -2 -15 M74 44 q4 -9 -2 -14" stroke="#b98a5a" stroke-width="3" fill="none" stroke-linecap="round"/>
-              <g fill="#9c6b42"><rect x="14" y="14" width="18" height="12" rx="3"/><rect x="88" y="94" width="18" height="12" rx="3"/></g>
-              <g fill="#d9b23c"><rect x="36" y="14" width="14" height="12" rx="3"/><rect x="70" y="94" width="14" height="12" rx="3"/></g>
-              <g fill="#d44f6e"><rect x="14" y="70" width="12" height="16" rx="3"/><rect x="94" y="34" width="12" height="16" rx="3"/></g>
-            </svg>
-          </span>
-          <span class="cap"><b>怡保美食</b><span>老字号、糖水街、白咖啡</span></span>
-        </button>
+    <button id="btnStart"><b>Play</b><span id="playSub"></span></button>
+    <button id="btnResume" hidden><span class="sw" aria-hidden="true">↺</span><span class="rt"><b>继续上一局 · Resume</b><span id="resumeSub"></span></span><span aria-hidden="true">▸</span></button>
 
-        <button class="bcard" data-pick="board" data-val="hustle" aria-pressed="false">
-          <span class="art" style="background:linear-gradient(160deg,#dfe3e8,#b9c2cc)">
-            <svg viewBox="0 0 120 120" fill="none">
-              <rect x="10" y="10" width="100" height="100" rx="10" fill="#f7f5ef" stroke="#5a5f66" stroke-width="3"/>
-              <rect x="26" y="26" width="68" height="68" rx="6" fill="#e6e9ec"/>
-              <rect x="40" y="44" width="16" height="46" fill="#8d949c"/>
-              <rect x="60" y="34" width="16" height="56" fill="#6d747c"/>
-              <rect x="43" y="48" width="4" height="4" fill="#fff"/><rect x="50" y="48" width="4" height="4" fill="#fff"/>
-              <rect x="43" y="58" width="4" height="4" fill="#fff"/><rect x="50" y="58" width="4" height="4" fill="#fff"/>
-              <rect x="63" y="40" width="4" height="4" fill="#fff"/><rect x="70" y="40" width="4" height="4" fill="#fff"/>
-              <rect x="63" y="50" width="4" height="4" fill="#fff"/><rect x="70" y="50" width="4" height="4" fill="#fff"/>
-              <path d="M30 92 h60" stroke="#5a5f66" stroke-width="3"/>
-              <circle cx="84" cy="44" r="9" fill="#e3b731"/>
-              <g fill="#e2803c"><rect x="14" y="14" width="18" height="12" rx="3"/><rect x="88" y="94" width="18" height="12" rx="3"/></g>
-              <g fill="#8a63c4"><rect x="36" y="14" width="14" height="12" rx="3"/><rect x="70" y="94" width="14" height="12" rx="3"/></g>
-              <g fill="#54a465"><rect x="14" y="70" width="12" height="16" rx="3"/><rect x="94" y="34" width="12" height="16" rx="3"/></g>
-            </svg>
-          </span>
-          <span class="cap"><b>Hustle City</b><span>Rise, grind, expense it</span></span>
-        </button>
-
-        <button class="bcard" data-pick="board" data-val="pirates" aria-pressed="false">
-          <span class="art" style="background:linear-gradient(160deg,#bfe6ea,#6fb3c4)">
-            <svg viewBox="0 0 120 120" fill="none">
-              <rect x="10" y="10" width="100" height="100" rx="10" fill="#f6efdc" stroke="#3b5566" stroke-width="3"/>
-              <circle cx="60" cy="60" r="30" fill="#7fd0dd"/>
-              <circle cx="60" cy="60" r="22" fill="#e8d6a8"/>
-              <circle cx="60" cy="60" r="14" fill="#6fae5a"/>
-              <path d="M46 70 l30 -6 6 10 -32 4 z" fill="#7a5230"/>
-              <path d="M64 62 v-22" stroke="#5a3d24" stroke-width="3"/>
-              <path d="M64 42 l14 6 -14 6 z" fill="#2f3d52"/>
-              <g fill="#3b5566"><rect x="14" y="14" width="18" height="12" rx="3"/><rect x="88" y="94" width="18" height="12" rx="3"/></g>
-              <g fill="#c4913a"><rect x="36" y="14" width="14" height="12" rx="3"/><rect x="70" y="94" width="14" height="12" rx="3"/></g>
-              <g fill="#3f9a9a"><rect x="14" y="70" width="12" height="16" rx="3"/><rect x="94" y="34" width="12" height="16" rx="3"/></g>
-            </svg>
-          </span>
-          <span class="cap"><b>Pirate Cove</b><span>A cursed crew, rent at high tide</span></span>
-        </button>
-
-        
-        <button class="bcard" data-pick="board" data-val="malaysia" aria-pressed="false">
-          <span class="art" style="background:linear-gradient(160deg,#ffd9d0,#ffb9a8)">
-            <svg viewBox="0 0 120 120" fill="none">
-              <rect x="10" y="10" width="100" height="100" rx="10" fill="#fdfaf2" stroke="#7a5c46" stroke-width="3"/>
-              <rect x="26" y="26" width="68" height="68" rx="6" fill="#ffe6c9"/>
-              <circle cx="60" cy="62" r="23" fill="#8ecf9c"/>
-              <path d="M60 30 L66 58 L60 96 L54 58 Z" fill="#fff" stroke="#7a5c46" stroke-width="2"/>
-              <circle cx="60" cy="52" r="8" fill="#e8b93a" stroke="#7a5c46" stroke-width="2"/>
-              <g fill="#d44a4a"><rect x="14" y="14" width="18" height="12" rx="3"/><rect x="88" y="94" width="18" height="12" rx="3"/></g>
-              <g fill="#e8b93a"><rect x="36" y="14" width="14" height="12" rx="3"/><rect x="70" y="94" width="14" height="12" rx="3"/></g>
-              <g fill="#3fa06a"><rect x="14" y="70" width="12" height="16" rx="3"/><rect x="94" y="34" width="12" height="16" rx="3"/></g>
-            </svg>
-          </span>
-          <span class="cap"><b>Jalan Malaysia</b><span>Melaka to KLCC, priced in RM</span></span>
-        </button>
-        <button class="bcard" data-pick="board" data-val="sanrio" aria-pressed="false">
-          <span class="art" style="background:linear-gradient(160deg,#ffe3ef,#ffc2da)">
-            <svg viewBox="0 0 120 120" fill="none">
-              <rect x="10" y="10" width="100" height="100" rx="10" fill="#fff5fa" stroke="#d2799f" stroke-width="3"/>
-              <rect x="26" y="26" width="68" height="68" rx="6" fill="#ffeaf3"/>
-              <ellipse cx="60" cy="80" rx="22" ry="6" fill="#f7cfe0"/>
-              <rect x="41" y="58" width="38" height="20" rx="4" fill="#fffafc" stroke="#d2799f" stroke-width="2"/>
-              <rect x="46" y="44" width="28" height="16" rx="4" fill="#fffafc" stroke="#d2799f" stroke-width="2"/>
-              <path d="M41 58h38M46 44h28" stroke="#ff9ec4" stroke-width="4" stroke-linecap="round"/>
-              <circle cx="60" cy="38" r="4" fill="#ff7fa8"/>
-              <g fill="#955436"><rect x="14" y="14" width="18" height="12" rx="3"/><rect x="88" y="94" width="18" height="12" rx="3"/></g>
-              <g fill="#d93a96"><rect x="36" y="14" width="14" height="12" rx="3"/><rect x="70" y="94" width="14" height="12" rx="3"/></g>
-              <g fill="#1fb25a"><rect x="14" y="70" width="12" height="16" rx="3"/><rect x="94" y="34" width="12" height="16" rx="3"/></g>
-              <g fill="#0072bb"><rect x="14" y="34" width="12" height="16" rx="3"/><rect x="94" y="70" width="12" height="16" rx="3"/></g>
-            </svg>
-          </span>
-          <span class="cap"><b>Sanrio Friends</b><span>Stars, certificates and one very good hotel</span></span>
-        </button>
-      </div>
+    <div class="tbRow">
+      <button class="tbBtn" id="btnHost">Create room</button>
+      <label class="tbCode"><input id="joinCode" placeholder="CODE" maxlength="6" aria-label="Room code"><button id="btnJoin">Join</button></label>
     </div>
 
+    <div id="setup" hidden>
     <div class="row opts">
       <div class="col">
       <span class="lbl">Pace</span>
@@ -1212,14 +1117,6 @@
       </div>
       </div>
       <div class="col">
-      <span class="lbl">Online</span>
-      <div class="pills">
-        <button class="pill" id="btnHost">Create room</button>
-        <label class="cashCustom"><input id="joinCode" placeholder="code" maxlength="6"></label>
-        <button class="pill" id="btnJoin">Join</button>
-      </div>
-      </div>
-      <div class="col">
       <span class="lbl">Bots</span>
       <div class="pills">
         <button class="pill" data-pick="bots" data-val="0" aria-pressed="true">0</button>
@@ -1237,14 +1134,18 @@
       </div>
       </div>
     </div>
-
-    <button id="btnResume" hidden><b>继续上一局 · Resume</b><span id="resumeSub"></span></button>
-
-    <div class="startRow">
-      <p id="menuBlurb">An island of coves, groves and lighthouses.</p>
-      <button id="btnGallery">Gallery</button>
-      <button id="btnStart">Start game</button>
     </div>
+
+    <div class="tbFoot">
+      <button id="btnSetup" aria-expanded="false" aria-controls="setup">Game setup</button>
+      <button id="btnGallery">Piece gallery</button>
+    </div>
+  </div>
+
+  <div id="tableChip">
+    <span class="tcText"><span class="lbl">On the table</span><b id="tableName"></b><small id="menuBlurb"></small></span>
+    <button id="tablePrev" aria-label="Previous board">‹</button>
+    <button id="tableNext" aria-label="Next board">›</button>
   </div>
 </div>
 

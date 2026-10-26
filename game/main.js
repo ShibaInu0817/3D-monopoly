@@ -4,6 +4,7 @@ import * as D from './data.js';
 import * as NET from './net-mqtt.js';
 import { PLAYER_COLORS } from './data.js';
 import * as E from './engine.js';
+import { startTabletop, showBoard, stopTabletop } from './tabletop.js';
 
 const $ = id => document.getElementById(id);
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -43,6 +44,21 @@ function offerResume() {
   btn.addEventListener('click', () => startGame(save));
 }
 
+/** The board on the table: the chip, the blurb, the Play caption and the live 3D table all follow it. */
+function pickBoard(id) {
+  choice.board = id;
+  document.documentElement.dataset.board = id;
+  $('tableName').textContent = D.BOARDS[id].name;
+  $('menuBlurb').textContent = D.BOARDS[id].blurb;
+  updatePlayLabel();
+  showBoard(id);
+}
+
+function updatePlayLabel() {
+  const bots = Math.min(choice.bots, choice.players - 1);
+  $('playSub').textContent = `${D.BOARDS[choice.board].name} · ${choice.players} seats` + (bots ? ` · ${bots} bot${bots > 1 ? 's' : ''}` : '') + ' ▸';
+}
+
 function wireMenu() {
   document.querySelectorAll('#menu [data-pick]').forEach(el => {
     el.addEventListener('click', () => {
@@ -52,11 +68,18 @@ function wireMenu() {
       if (kind === 'cash') { $('cashInput').value = ''; $('cashInput').classList.remove('on'); }
       document.querySelectorAll(`#menu [data-pick="${kind}"]`).forEach(sib =>
         sib.setAttribute('aria-pressed', String(sib === el)));
-      if (kind === 'board') {
-        $('menuBlurb').textContent = D.BOARDS[val].blurb;
-        document.documentElement.dataset.board = val;
-      }
+      updatePlayLabel();
     });
+  });
+  // the chip steps through the boards in the order data.js declares them
+  const ids = Object.keys(D.BOARDS);
+  const stepBoard = d => pickBoard(ids[(ids.indexOf(choice.board) + d + ids.length) % ids.length]);
+  $('tablePrev').addEventListener('click', () => stepBoard(-1));
+  $('tableNext').addEventListener('click', () => stepBoard(1));
+  $('btnSetup').addEventListener('click', () => {
+    const open = $('setup').hidden;
+    $('setup').hidden = !open;
+    $('btnSetup').setAttribute('aria-expanded', String(open));
   });
   // read off the tab row rather than a hardcoded list, so adding a tab is one
   // change and a hidden tab (the cheat panel) never leaves a stale sheet open
@@ -1645,6 +1668,7 @@ async function enterCast(msg) {
   castOpen = true;
   castDeadline = msg.endsAt || Date.now() + CAST_MS;
   if (msg.board) choice.board = msg.board;
+  stopTabletop(choice.board);
   D.setBoard(choice.board);            // publishes the board's crew before we load one
   $('menu').hidden = true;
   $('lobby').hidden = true;
@@ -1688,6 +1712,7 @@ async function startGame(resume) {
   started = true;
   const btn = $(resume && !resume.net ? 'btnResume' : 'btnStart');
   if (resume) Object.assign(choice, resume.choice);
+  stopTabletop(choice.board);
 
   // A networked game has already run its select — every player picked their own
   // seat and the host handed the finished cast down. Only a single-device game
@@ -1837,3 +1862,5 @@ $('btnMenu').addEventListener('click', () => { clearSave(); location.reload(); }
 window.addEventListener('pagehide', saveGame);
 wireMenu();
 offerResume();
+startTabletop($('tableCanvas'), choice.board);
+pickBoard(choice.board);
