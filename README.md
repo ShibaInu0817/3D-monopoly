@@ -1,12 +1,12 @@
 <p align="center">
-  <a href="https://shibainu0817.github.io/3D-monopoly/"><img src="media/teaser.gif" alt="Pirate Cove: a roll of the dice, the camera follows the piece, a lot goes up for sale, then the bots take their turns" width="560"></a>
+  <a href="https://shibainu0817.github.io/landlord-island/"><img src="media/teaser.gif" alt="Pirate Cove: a roll of the dice, the camera follows the piece, a lot goes up for sale, then the bots take their turns" width="560"></a>
 </p>
 
 <h1 align="center">Landlord Island</h1>
 <p align="center"><i>The free 3D Monopoly alternative: buy lots, build, collect rent. Last player standing takes the map.</i></p>
 
 <p align="center">
-  <a href="https://shibainu0817.github.io/3D-monopoly/"><img src="https://img.shields.io/badge/%E2%96%B6%20Play%20free-in%20your%20browser-c8613a?style=for-the-badge" alt="Play free in your browser"></a>
+  <a href="https://shibainu0817.github.io/landlord-island/"><img src="https://img.shields.io/badge/%E2%96%B6%20Play%20free-in%20your%20browser-c8613a?style=for-the-badge" alt="Play free in your browser"></a>
 </p>
 
 Landlord Island is a property-trading board game in 3D, played in the browser on a phone, tablet or computer.
@@ -63,7 +63,7 @@ Games save on the device: **Resume** picks up where you left off.
 ## Folders
 
 ```
-3D-monopoly/
+landlord-island/
 ├─ index.html              the whole game page: menu, HUD, sheets and styles
 ├─ game/
 │  ├─ main.js              the game loop, menu and UI
@@ -94,7 +94,7 @@ python3 -m http.server 8000      # then open http://localhost:8000
 Opening `index.html` straight from disk doesn't work, because browsers block ES modules from `file://`.
 
 - **Online play** needs no server of your own. Rooms run over public MQTT brokers (HiveMQ, Mosquitto, EMQX, tried in that order). They're free community services with no uptime guarantee, and anyone can read the messages, so keep nothing private in them.
-- **Deploy:** GitHub Pages serves `main` at https://shibainu0817.github.io/3D-monopoly/. Push to `main` and it updates. Pages caches for about 10 minutes, so two devices can briefly run different versions; `BUILD` in `game/net-mqtt.js` makes them refuse to join each other rather than fail silently. Bump it whenever the online message format changes.
+- **Deploy:** GitHub Pages serves `main` at https://shibainu0817.github.io/landlord-island/. Push to `main` and it updates. Pages caches for about 10 minutes, so two devices can briefly run different versions; `BUILD` in `game/net-mqtt.js` makes them refuse to join each other rather than fail silently. Bump it whenever the online message format changes.
 - **New board:** add an entry to `BOARDS` in `game/data.js` (lots, prices, colours, cards, labels, `look`). The menu, engine and 3D board all read from it.
 
 Code: MIT. The 3D models keep their own licences (mostly Kenney, CC0), and the boards' content and media are all rights reserved. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
